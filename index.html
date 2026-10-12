@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PrepTech - Technical MCQ Assessment Platform</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- =======================================================================
+       Main Platform Navigation Header
+       ======================================================================= -->
+  <header class="app-header" id="app-header">
+    <div class="brand-wrapper" id="brand-home-btn">
+      <div class="brand-icon">PT</div>
+      <div>
+        <span class="brand-title">PrepTech</span>
+        <span class="brand-subtitle">Technical MCQ Assessment Engine</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" id="btn-open-ai-generator">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        <span class="btn-text-desktop">AI Generated Test</span>
+        <span class="btn-text-mobile">AI Test</span>
+      </button>
+      <button class="btn btn-outline" id="btn-open-prompt-modal">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"></path><path d="M12 2a10 10 0 0 1 10 10"></path><path d="M12 12L2.5 7.5"></path></svg>
+        <span class="btn-text-desktop">AI PDF/Doc Prompt</span>
+        <span class="btn-text-mobile">Doc Prompt</span>
+      </button>
+      <button class="btn btn-secondary" id="btn-open-upload-modal">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        <span class="btn-text-desktop">Upload Mock Test</span>
+        <span class="btn-text-mobile">Upload</span>
+      </button>
+      <button class="btn btn-outline btn-sm btn-sync-header" id="btn-export-backup" title="Export all tests and results as JSON backup">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        <span class="btn-text-desktop">Export</span>
+      </button>
+      <button class="btn btn-outline btn-sm btn-sync-header" id="btn-import-backup-trigger" title="Import backup from another device">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        <span class="btn-text-desktop">Import</span>
+      </button>
+      <input type="file" id="input-backup-file" accept=".json" style="display: none;">
+    </div>
+  </header>
+
+  <!-- =======================================================================
+       VIEW 1: Dashboard / Home View
+       ======================================================================= -->
+  <main class="main-container">
+    <section class="view-section active" id="view-dashboard">
+      <!-- Hero Banner -->
+      <div class="dashboard-hero">
+        <div class="hero-content">
+          <h1>Technical Assessment Simulator</h1>
+          <p>
+            Simulate real hiring & corporate MCQ technical tests on your local machine.
+            Practice timed sections, analyze diagnostic score trends, and pinpoint weak topics for targeted improvement.
+          </p>
+        </div>
+        <div class="hero-stats">
+          <div class="stat-chip">
+            <div class="stat-chip-num" id="stat-total-tests">0</div>
+            <div class="stat-chip-label">Total Tests</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip-num" id="stat-attempted-tests">0</div>
+            <div class="stat-chip-label">Attempted</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip-num" id="stat-avg-score">0%</div>
+            <div class="stat-chip-label">Avg. Score</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters & Actions -->
+      <div class="dashboard-filters">
+        <div class="filter-tabs">
+          <button class="filter-tab active" data-filter="all">All Assessments</button>
+          <button class="filter-tab" data-filter="unattempted">Unattempted</button>
+          <button class="filter-tab" data-filter="attempted">Attempted & Results</button>
+        </div>
+        <div>
+          <button class="btn btn-secondary btn-sm" id="btn-load-sample-test">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            Add More Sample Tests
+          </button>
+        </div>
+      </div>
+
+      <!-- Assessments Cards Grid -->
+      <div class="assessments-grid" id="assessments-grid-container">
+        <!-- Rendered dynamically via app.js -->
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         VIEW 2: Pre-Test Customization Page
+         ======================================================================= -->
+    <section class="view-section" id="view-pre-exam">
+      <div class="pre-exam-box">
+        <div class="pre-exam-header">
+          <div style="margin-bottom: 8px;">
+            <span class="card-badge badge-unattempted" id="pre-exam-badge">Assessment Configuration</span>
+          </div>
+          <h2 id="pre-exam-title">Technical Assessment</h2>
+          <p id="pre-exam-desc">Customize test timing, section navigation modes, and marking rules before starting.</p>
+        </div>
+
+        <div class="rules-panel">
+          <h4>Standard Assessment Rules:</h4>
+          <ul>
+            <li>Each question has 4 options with exactly one correct answer.</li>
+            <li>Use the Right Palette to track question status (Answered, Not Answered, Marked for Review).</li>
+            <li>Questions are internally tagged by topic to generate your <strong>Weak Topic Report</strong> upon submission.</li>
+            <li>Once submitted, you will receive full diagnostic score breakdowns and detailed explanations.</li>
+          </ul>
+        </div>
+
+        <!-- Customization Form -->
+        <div class="config-form-group">
+          <label class="config-label">1. Timer Mode</label>
+          <div class="config-desc">Choose how countdown timer and section pacing operate during the exam:</div>
+          <div class="radio-group-cards">
+            <label class="radio-card selected" id="card-timer-overall">
+              <input type="radio" name="timerMode" value="overall" checked>
+              <div class="radio-card-content">
+                <h5>Overall Exam Timer</h5>
+                <p>One global countdown timer for the entire test. You can freely switch across all sections at any time.</p>
+              </div>
+            </label>
+            <label class="radio-card" id="card-timer-section">
+              <input type="radio" name="timerMode" value="section">
+              <div class="radio-card-content">
+                <h5>Section-Strict Timer</h5>
+                <p>Strict individual timer for each section. When a section timer expires, it auto-advances to the next section.</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="config-form-group">
+          <label class="config-label" for="input-custom-duration">2. Total Duration (Minutes)</label>
+          <div class="config-desc">You can adjust the total allocated exam duration or keep default:</div>
+          <input type="number" id="input-custom-duration" class="input-text" min="1" max="300" value="30">
+          <span style="font-size: 12px; color: var(--text-muted); margin-left: 8px;">minutes</span>
+        </div>
+
+        <div class="config-form-group">
+          <label class="config-label">3. Section Navigation Policy</label>
+          <div class="toggle-switch-row">
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Allow Free Section Switching</div>
+              <div style="font-size: 12px; color: var(--text-muted);">Enable jumping back and forth between different sections whenever desired.</div>
+            </div>
+            <input type="checkbox" id="input-allow-section-switching" checked style="width: 18px; height: 18px; cursor: pointer;">
+          </div>
+        </div>
+
+        <div class="config-form-group">
+          <label class="config-label">4. Marking Scheme</label>
+          <div style="display: flex; gap: 20px;">
+            <div>
+              <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;">Marks per Correct</span>
+              <input type="number" id="input-marks-correct" class="input-text" style="max-width: 110px;" value="1" step="0.5">
+            </div>
+            <div>
+              <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;">Negative Penalty per Incorrect</span>
+              <input type="number" id="input-marks-penalty" class="input-text" style="max-width: 110px;" value="0" step="0.25">
+              <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px;">Use 0.25 or 0 for no penalty</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-form-group" id="cutoff-config-container">
+          <!-- Rendered dynamically by app.js based on test's sectional cutoffs -->
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border-light);">
+          <button class="btn btn-outline" id="btn-pre-exam-cancel">← Return to Dashboard</button>
+          <button class="btn btn-primary btn-lg" id="btn-pre-exam-start">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            Begin Assessment
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         VIEW 3: Post-Exam Evaluation & Analytics View
+         ======================================================================= -->
+    <section class="view-section" id="view-evaluation">
+      <!-- Evaluation Header / Hero -->
+      <div class="eval-hero-card">
+        <div class="eval-title-block">
+          <span class="card-badge badge-attempted" style="margin-bottom: 8px; display: inline-block;">Assessment Completed</span>
+          <h2 id="eval-test-title">Evaluation Summary</h2>
+          <div class="eval-subtitle" id="eval-date-time">Submitted on Oct 11, 2026</div>
+        </div>
+        <div class="eval-score-ring-box">
+          <div class="score-badge-huge">
+            <div class="huge-score-num" id="eval-score-display">0%</div>
+            <div class="huge-score-label" id="eval-status-display">PASSED</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Key Metrics Strip -->
+      <div class="eval-metrics-grid">
+        <div class="metric-card">
+          <div class="metric-card-label">Marks Scored</div>
+          <div class="metric-card-val" id="eval-marks-val">0 / 0</div>
+          <div class="metric-card-sub" id="eval-marks-sub">Passing Benchmark: 50%</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">Accuracy Rate</div>
+          <div class="metric-card-val" id="eval-accuracy-val">0%</div>
+          <div class="metric-card-sub" id="eval-accuracy-sub">Correct of Attempted</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">Attempted Questions</div>
+          <div class="metric-card-val" id="eval-attempted-val">0 / 0</div>
+          <div class="metric-card-sub" id="eval-unattempted-sub">0 skipped</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">Total Time Spent</div>
+          <div class="metric-card-val" id="eval-time-val">0m 0s</div>
+          <div class="metric-card-sub">Recorded by live timer</div>
+        </div>
+      </div>
+
+      <!-- MANDATORY SECTIONAL CUTOFF VERIFICATION (Placements ITM requirement) -->
+      <div class="analytics-section-box" id="eval-cutoff-container">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+
+      <!-- 1. DIAGNOSTIC WEAK TOPICS SECTION (Crucial requirement) -->
+      <div class="analytics-section-box">
+        <div class="section-box-header">
+          <div>
+            <h3>Diagnostic Topic Analysis & Weak Areas</h3>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+              Automatically categorized by topic to identify subjects requiring revision and practice.
+            </div>
+          </div>
+        </div>
+
+        <div id="eval-weak-topics-container">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- 2. SECTION COMPARISON & VISUAL CHART -->
+      <div class="analytics-section-box">
+        <div class="section-box-header">
+          <div>
+            <h3>Section-Wise Performance Breakdown</h3>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+              Visual comparison of total questions, attempted questions, and correct answers per section.
+            </div>
+          </div>
+          <div style="display: flex; gap: 14px; font-size: 12px; font-weight: 600;">
+            <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; background: #CBD5E1; border-radius: 2px;"></span> Total</span>
+            <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; background: #2563EB; border-radius: 2px;"></span> Attempted</span>
+            <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; background: #16A34A; border-radius: 2px;"></span> Correct</span>
+          </div>
+        </div>
+
+        <!-- SVG Bar Chart -->
+        <div id="eval-chart-wrapper" style="margin-bottom: 24px; overflow-x: auto;"></div>
+
+        <!-- Section Metrics Table -->
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Section Name</th>
+                <th>Total Questions</th>
+                <th>Attempted</th>
+                <th>Correct</th>
+                <th>Incorrect</th>
+                <th>Accuracy</th>
+                <th>Marks Scored</th>
+              </tr>
+            </thead>
+            <tbody id="eval-sections-table-body">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 3. COMPREHENSIVE QUESTION-BY-QUESTION SOLUTION REVIEW -->
+      <div class="analytics-section-box">
+        <div class="section-box-header">
+          <div>
+            <h3>Question-by-Question Solution Review</h3>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+              Review your selected choices alongside the correct solutions and detailed explanations.
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary btn-sm review-filter-btn active" data-filter="all">All</button>
+            <button class="btn btn-secondary btn-sm review-filter-btn" data-filter="incorrect">Incorrect Only</button>
+            <button class="btn btn-secondary btn-sm review-filter-btn" data-filter="unattempted">Skipped</button>
+            <button class="btn btn-secondary btn-sm review-filter-btn" data-filter="correct">Correct</button>
+          </div>
+        </div>
+
+        <div id="eval-questions-review-list">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Bottom Evaluation Actions -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px;">
+        <button class="btn btn-outline" id="btn-eval-back-dash">← Back to Dashboard</button>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-secondary" onclick="window.print()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            Print / Save Report
+          </button>
+          <button class="btn btn-primary" id="btn-eval-reattempt">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            Re-Attempt Test
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         VIEW 5: AI Generated Test Studio Page
+         ======================================================================= -->
+    <section class="view-section" id="view-ai-generate">
+      <!-- Top Navigation & Return -->
+      <div class="ai-gen-topbar">
+        <button class="btn btn-outline btn-sm" id="btn-gen-back-dash">← Back to Dashboard</button>
+        <span class="card-badge badge-attempted" style="font-weight: 700;">⚡ AI Topic Studio</span>
+      </div>
+
+      <!-- Studio Hero Header -->
+      <div class="ai-gen-hero">
+        <h2>AI Topic Test Studio</h2>
+        <p>
+          Configure custom placement-grade MCQ tests for any syllabus topic, generate structured AI prompts for AntiGravity / Claude / ChatGPT, and import the generated JSON to practice with full timing, palette, and diagnostic evaluation.
+        </p>
+      </div>
+
+      <div class="ai-gen-grid">
+        <!-- STEP 1: Topic & Parameter Setup -->
+        <div class="ai-gen-card">
+          <div class="ai-card-step-badge">Step 1: Configure Practice Topic & Parameters</div>
+
+          <!-- Quick Topic Preset Chips -->
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="config-label">Quick Select Placement Topic:</label>
+            <div class="topic-chips-container" id="ai-topic-chips-container">
+              <!-- Rendered dynamically from TOPIC_CATALOG or fallback -->
+              <button type="button" class="topic-chip active" data-topic="Dynamic Programming">Dynamic Programming</button>
+              <button type="button" class="topic-chip" data-topic="Binary Trees & BST">Binary Trees & BST</button>
+              <button type="button" class="topic-chip" data-topic="Time & Work">Time & Work</button>
+              <button type="button" class="topic-chip" data-topic="P&C and Probability">P&C & Probability</button>
+              <button type="button" class="topic-chip" data-topic="Syllogism & Deductions">Syllogism</button>
+              <button type="button" class="topic-chip" data-topic="Bitwise Operators & Pseudo Code">Bitwise Pseudo Code</button>
+              <button type="button" class="topic-chip" data-topic="SQL Queries & Indexing">SQL Queries</button>
+              <button type="button" class="topic-chip" data-topic="Subject-Verb Agreement">Grammar Rules</button>
+              <button type="button" class="topic-chip" data-topic="Deadlocks & CPU Scheduling">Deadlocks & OS</button>
+            </div>
+          </div>
+
+          <!-- Custom Topic Input -->
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label class="config-label" for="input-gen-topic">Or Type Any Custom Topic / Subject:</label>
+            <input type="text" id="input-gen-topic" class="input-text" style="max-width: 100%;" value="Dynamic Programming" placeholder="e.g. Graph BFS/DFS, Trie Data Structure, Speed Distance...">
+          </div>
+
+          <!-- Parameter Controls Grid -->
+          <div class="gen-params-grid">
+            <div class="form-group">
+              <label class="config-label" for="select-gen-count">Questions Count:</label>
+              <select id="select-gen-count" class="input-text" style="max-width: 100%;">
+                <option value="5">5 Questions (Quick Quiz)</option>
+                <option value="10">10 Questions (Short Practice)</option>
+                <option value="15">15 Questions (Section Standard)</option>
+                <option value="20" selected>20 Questions (Deep Dive - Recommended)</option>
+                <option value="25">25 Questions</option>
+                <option value="30">30 Questions (Full Assessment)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="config-label" for="select-gen-difficulty">Target Difficulty:</label>
+              <select id="select-gen-difficulty" class="input-text" style="max-width: 100%;">
+                <option value="Standard Placement (TCS/Infosys/AMCAT)" selected>Standard Placement Level</option>
+                <option value="Advanced / Product Company (Mettl/CoCubes)">Advanced / Product Level</option>
+                <option value="Foundational / Beginner">Foundational / Conceptual</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="config-label" for="input-gen-duration">Allocated Duration (Mins):</label>
+              <input type="number" id="input-gen-duration" class="input-text" style="max-width: 100%;" value="25" min="5" max="180">
+            </div>
+
+            <div class="form-group">
+              <label class="config-label" for="input-gen-marks">Marks Per Correct:</label>
+              <input type="number" id="input-gen-marks" class="input-text" style="max-width: 100%;" value="1" min="0.5" step="0.5">
+            </div>
+
+            <div class="form-group">
+              <label class="config-label" for="input-gen-negative">Negative Marking (-):</label>
+              <input type="number" id="input-gen-negative" class="input-text" style="max-width: 100%;" value="0" min="0" step="0.25">
+            </div>
+
+            <div class="form-group">
+              <label class="config-label" for="input-gen-cutoff">Sectional Cutoff (%):</label>
+              <input type="number" id="input-gen-cutoff" class="input-text" style="max-width: 100%;" value="50" min="0" max="100">
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: Interactive AI Prompt Box -->
+        <div class="ai-gen-card">
+          <div class="ai-card-step-badge">Step 2: Copy AI Prompt</div>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+            Copy this auto-generated prompt and paste it into <strong>AntiGravity</strong>, <strong>Claude</strong>, or <strong>ChatGPT</strong>. The AI will output the exact test JSON compatible with this platform.
+          </p>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">AI Prompt Template:</span>
+            <button class="btn btn-primary btn-sm" id="btn-copy-gen-prompt">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              📋 Copy AI Prompt
+            </button>
+          </div>
+          <textarea id="textarea-gen-prompt" class="code-textarea" style="height: 160px; font-size: 12px;" readonly></textarea>
+        </div>
+
+        <!-- STEP 3: JSON Import & Target Destination -->
+        <div class="ai-gen-card">
+          <div class="ai-card-step-badge">Step 3: Import JSON & Launch Assessment</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Paste Generated JSON:</span>
+            <button class="btn btn-outline btn-sm" id="btn-load-sample-ai-json">
+              ⚡ Load Sample DP Test (5 Qs)
+            </button>
+          </div>
+          <textarea id="textarea-gen-json" class="code-textarea" style="height: 180px; font-size: 12px;" placeholder="Paste the JSON response from your AI here..."></textarea>
+          <div id="gen-validation-msg" class="gen-validation-box" style="display: none;"></div>
+
+          <!-- Destination Choice -->
+          <div class="destination-choice-box">
+            <label class="config-label" style="margin-bottom: 10px;">Select Destination:</label>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <label class="radio-card selected" id="radio-label-standalone">
+                <input type="radio" name="genDestination" value="standalone" checked>
+                <div class="radio-card-content">
+                  <div class="radio-card-title">Create Standalone Topic Test (Recommended)</div>
+                  <div class="radio-card-desc">Adds a dedicated assessment card on your dashboard tagged with "AI TOPIC TEST".</div>
+                </div>
+              </label>
+              <label class="radio-card" id="radio-label-append">
+                <input type="radio" name="genDestination" value="append">
+                <div class="radio-card-content">
+                  <div class="radio-card-title">Append as New Section to Existing Test</div>
+                  <div class="radio-card-desc">Integrates this topic question set as an additional section inside an existing assessment.</div>
+                </div>
+              </label>
+              <div id="append-test-options" style="display: none; padding-left: 28px; margin-top: 4px;">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div>
+                    <label class="config-label" for="select-append-target-test">Target Assessment:</label>
+                    <select id="select-append-target-test" class="input-text" style="max-width: 100%;"></select>
+                  </div>
+                  <div>
+                    <label class="config-label" for="input-append-sec-name">New Section Name:</label>
+                    <input type="text" id="input-append-sec-name" class="input-text" style="max-width: 100%;" placeholder="e.g. AI Practice: Dynamic Programming">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="ai-gen-action-row">
+            <button class="btn btn-secondary" id="btn-gen-save-only">
+              Save to Dashboard
+            </button>
+            <button class="btn btn-primary btn-lg" id="btn-gen-save-launch">
+              🚀 Save & Start Assessment Immediately
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- =======================================================================
+       VIEW 4: LIVE EXAM TAKING ENVIRONMENT (Fullscreen Clean Assessment UI)
+       ======================================================================= -->
+  <div id="view-exam">
+    <!-- Exam Top Bar -->
+    <header class="exam-topbar">
+      <div class="exam-top-left">
+        <div class="brand-icon" style="width: 28px; height: 28px; font-size: 14px;">PT</div>
+        <div class="exam-test-name" id="exam-header-title">Technical Assessment</div>
+      </div>
+
+      <!-- Section Navigator Pills -->
+      <div class="exam-sections-bar" id="exam-sections-tabs">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Live Clock & Submit -->
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button class="btn btn-outline btn-sm mobile-palette-toggle-btn" id="btn-mobile-palette-toggle">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span id="mobile-palette-toggle-text">Palette</span>
+        </button>
+        <div class="exam-timer-wrapper" id="exam-timer-container">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <div>
+            <div class="exam-timer-label" id="exam-timer-label">Time Remaining</div>
+            <div class="exam-timer-clock" id="exam-timer-display">00:00:00</div>
+          </div>
+        </div>
+        <button class="btn btn-danger btn-sm" id="btn-submit-exam-trigger">
+          Submit Test
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Exam Center Area -->
+    <div class="exam-content-area">
+      <!-- Question Panel -->
+      <div class="exam-main-panel">
+        <div class="question-status-header">
+          <div class="q-number-title" id="exam-q-number-title">Question 1 of 10</div>
+          <div class="q-marks-pill" id="exam-q-marks-pill">+1.0 / -0.0 Marks</div>
+        </div>
+
+        <div class="question-body" id="exam-q-text">
+          Question content...
+        </div>
+
+        <!-- Optional Code Block -->
+        <div id="exam-q-code" class="question-code-block" style="display: none;"></div>
+
+        <!-- Options Container (MCQ Sections 1 to 6 or Subjective Writing for Section 7) -->
+        <div class="options-list" id="exam-options-container">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <!-- Exam Bottom Action Bar -->
+        <div class="exam-action-footer">
+          <div class="footer-left-actions">
+            <button class="btn btn-warning btn-sm" id="btn-mark-review">
+              Mark for Review & Next
+            </button>
+            <button class="btn btn-outline btn-sm" id="btn-clear-response">
+              Clear Response
+            </button>
+          </div>
+          <div class="footer-right-actions">
+            <button class="btn btn-outline btn-sm" id="btn-prev-question">
+              ← Previous
+            </button>
+            <button class="btn btn-primary btn-sm" id="btn-save-next">
+              Save & Next →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Palette Overlay Backdrop for Mobile -->
+      <div class="palette-backdrop" id="palette-backdrop"></div>
+
+      <!-- Right Side Question Palette -->
+      <aside class="exam-palette-sidebar" id="exam-palette-sidebar">
+        <div class="palette-header">
+          <div>
+            <h4>Question Palette</h4>
+            <div style="font-size: 11px; color: var(--text-muted);" id="palette-sec-subtitle">Section: Core Concepts</div>
+          </div>
+          <button class="palette-close-btn" id="btn-close-palette" aria-label="Close Question Palette">&times;</button>
+        </div>
+
+        <!-- Palette Status Legend -->
+        <div class="palette-legend">
+          <div class="legend-item">
+            <span class="legend-circle answered"></span>
+            <span>Answered (<span id="palette-count-answered">0</span>)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-circle unanswered"></span>
+            <span>Unanswered (<span id="palette-count-unanswered">0</span>)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-circle marked"></span>
+            <span>Review (<span id="palette-count-marked">0</span>)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-circle not-visited"></span>
+            <span>Not Visited (<span id="palette-count-unvisited">0</span>)</span>
+          </div>
+        </div>
+
+        <!-- Palette Number Pills Grid -->
+        <div class="palette-grid-wrapper">
+          <div class="palette-sec-title">Questions in Section</div>
+          <div class="palette-grid" id="palette-grid-buttons">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL 1: Upload / Import JSON Mock Test
+       ======================================================================= -->
+  <div class="modal-overlay" id="modal-upload">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Upload / Import Mock Test JSON</h3>
+        <button class="modal-close-btn" data-close-modal="modal-upload">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); margin-bottom: 14px; font-size: 13px;">
+          Paste your JSON test skeleton below or upload a <code>.json</code> file. Once added, a new test banner will be created on your dashboard ready to attempt.
+        </p>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">JSON Skeleton Input:</span>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-outline btn-sm" id="btn-copy-skeleton-sample">
+              Copy Sample Schema
+            </button>
+            <label class="btn btn-secondary btn-sm" style="cursor: pointer; margin-bottom: 0;">
+              Upload .json File
+              <input type="file" id="file-input-upload" accept=".json" style="display: none;">
+            </label>
+          </div>
+        </div>
+
+        <textarea id="textarea-json-input" class="code-textarea" placeholder="Paste your test JSON here..."></textarea>
+        <div id="upload-validation-msg" style="margin-top: 8px; font-size: 12px; font-weight: 600;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" data-close-modal="modal-upload">Cancel</button>
+        <button class="btn btn-primary" id="btn-confirm-upload-test">Create Test Banner</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL 2: AI Document to JSON Converter Helper
+       ======================================================================= -->
+  <div class="modal-overlay" id="modal-prompt-helper">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Convert 1-Page PDF / Word Document to Test JSON</h3>
+        <button class="modal-close-btn" data-close-modal="modal-prompt-helper">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="rules-panel" style="margin-bottom: 16px;">
+          <h4>How to convert your documents:</h4>
+          <ol style="padding-left: 20px; font-size: 13px; color: var(--text-secondary);">
+            <li>Copy the prompt template below.</li>
+            <li>Paste it directly to AntiGravity, ChatGPT, Claude, or any AI tool along with the text/questions from your PDF or Word document.</li>
+            <li>The AI will format all questions, options, topics, and correct answers into the exact JSON format.</li>
+            <li>Copy the resulting JSON and paste it into the <strong>Upload Mock Test</strong> section!</li>
+          </ol>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">AI Conversion Prompt Template:</span>
+          <button class="btn btn-outline btn-sm" id="btn-copy-ai-prompt">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Copy Prompt Template
+          </button>
+        </div>
+
+        <textarea id="textarea-ai-prompt" class="code-textarea" readonly></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" data-close-modal="modal-prompt-helper">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL 3: Submit Confirmation Modal
+       ======================================================================= -->
+  <div class="modal-overlay" id="modal-submit-confirm">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3>Submit Assessment?</h3>
+        <button class="modal-close-btn" data-close-modal="modal-submit-confirm">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 14px; color: var(--text-secondary);">
+          Are you sure you want to submit your assessment? Once submitted, your answers will be evaluated and the Weak Topic Report will be generated.
+        </p>
+        <div style="background: var(--bg-secondary); border-radius: 6px; padding: 14px; border: 1px solid var(--border-light); font-size: 13px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span>Questions Answered:</span>
+            <strong id="confirm-answered-count" style="color: var(--status-answered);">0</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span>Questions Marked for Review:</span>
+            <strong id="confirm-marked-count" style="color: var(--status-marked);">0</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>Questions Unanswered:</span>
+            <strong id="confirm-unanswered-count" style="color: var(--status-unanswered);">0</strong>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" data-close-modal="modal-submit-confirm">Continue Test</button>
+        <button class="btn btn-danger" id="btn-final-confirm-submit">Yes, Submit Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script Modules -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
