@@ -1,0 +1,166 @@
+================================================================================
+CLAUDE TERMINAL EXECUTION PLAN & IMPLEMENTATION ROADMAP
+Project: Exam Prep Platform (c:\COADING\Projects\exam prep app)
+Extracted Date: 2026-10-22T09:41:44.096Z
+Source: Claude Code Session (Omniroute) / wiggly-bouncing-zephyr.md
+================================================================================
+
+USER PROMPT FROM CLAUDE TERMINAL:
+"in the main home page arrange the ai based and real full length mock in two vertical
+rown side by side, also add a custumization in ai test to add a small timer for each
+question along with the total test timer such that the question is still available to
+be attempted and can be taken time to solve it even if the question individual timer
+is out with a option button to see solution and explanation at that time, add a new
+topic like math puzzle that completely based on logic and desigthe backend such that
+it can clearly show the puzzle design and geometrical structure on the screen on both
+laptop and phone"
+
+================================================================================
+FULL PLAN & DETAILED EXECUTION STEPS:
+================================================================================
+
+# Implementation Plan: Dual-Column Dashboard, Per-Question Timer & Solution Peek, and Responsive Math Puzzle Topic
+
+## Context
+The goal is to enhance the exam preparation platform with three key capabilities:
+1. **Home Page Dual-Column Layout**: Organizes the home dashboard into two side-by-side vertical columns: Real Full-Length Mock Tests on the left, and AI-Generated / Topic Tests on the right (stacking vertically on mobile viewports).
+2. **AI Test Per-Question Timer & Non-Blocking Solution Peek**: Adds a customizable countdown timer for each individual question (e.g. 60s) alongside the overall/section exam timer. When the individual question timer expires, the question remains 100% active and attemptable, and an option button "💡 View Solution & Explanation" is unlocked allowing the user to view the step-by-step reasoning on-demand.
+3. **Math Puzzle Topic & Responsive Geometric Structure Engine**: Introduces "Math Puzzle & Geometric Logic" into the placement topic catalog, designs schema and renderer support for visual geometric diagrams (crisp vector SVGs with responsive `viewBox`), bundles a 15-question visual logic test (`MATH_PUZZLE_TEST`), and renders diagrams in both the Live Exam and Post-Exam Review.
+
+---
+
+## Proposed Changes
+
+### 1. `C:\COADING\Projects\exam prep app\index.html`
+- **Dashboard View (`#view-dashboard`)**:
+  - Replace `#assessments-grid-container` with `#dashboard-columns-container` containing two vertical columns:
+    - `#col-full-length`: Full-Length Placement Mock Tests (with icon, title, description, and `#count-full-length` badge).
+    - `#col-topic-tests`: AI-Generated & Topic Practice Tests (with icon, title, description, and `#count-topic-tests` badge).
+    - Containers `#cards-full-length` and `#cards-topic-tests` for rendering cards.
+- **Pre-Exam Configuration View (`#view-pre-exam`)**:
+  - Add configuration group `#config-group-question-timer`:
+    - Toggle checkbox `#input-enable-question-timer` ("Enable Per-Question Countdown Timer").
+    - Duration selector `#select-question-timer-sec` (30s, 60s, 90s, 120s, custom) with `#input-custom-question-sec`.
+- **Live Exam View (`#view-exam`)**:
+  - In `.question-status-header`, add dedicated question timer badge `#exam-q-timer-badge` with SVG clock icon, label, and digits `#exam-q-timer-val`.
+  - Add `#exam-q-visual` container inside `.exam-main-panel` before options for displaying responsive geometric diagrams and puzzle SVGs.
+  - Below `#exam-options-container`, add `#exam-solution-peek-area` with:
+    - `#btn-peek-solution`: "💡 View Solution & Explanation" button (appears when question timer expires).
+    - `#exam-solution-card`: Expandable in-exam solution card showing correct answer badge, explanation text, and hide toggle.
+
+### 2. `C:\COADING\Projects\exam prep app\styles.css`
+- **Dual-Column Dashboard**:
+  - `.dashboard-columns-container`: CSS Grid with `grid-template-columns: 1fr 1fr; gap: 28px; align-items: start;`.
+  - Responsive breakpoint `@media (max-width: 900px)`: switches to `grid-template-columns: 1fr; gap: 24px;`.
+  - `.dashboard-column`: styled card container with header border, icon, title, count pill, and flex column card list.
+  - `.column-empty-state`: dashed placeholder when no tests match the active filter.
+- **Per-Question Timer & Solution Peek**:
+  - `.q-timer-badge`: clean pill badge displaying Q-timer countdown.
+  - `.q-timer-badge.timer-warning` (<=10s) and `.q-timer-badge.timer-expired` (at 0s).
+  - `.exam-solution-peek-area`, `.btn-peek-trigger`, and `.in-exam-solution-card` with high-contrast solution callout and clean borders.
+- **Responsive Diagram & Geometric Puzzle Styling**:
+  - `.question-visual-wrapper` and `.diagram-svg-container`:
+    - `max-width: 440px; margin: 16px auto; width: 100%; display: flex; justify-content: center; background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 16px;`.
+    - SVGs scale fluidly on both small phones (320px) and wide desktop monitors using `width: 100%; height: auto;`.
+
+### 3. `C:\COADING\Projects\exam prep app\schema.js`
+- **Topic Catalog**:
+  - Add `{ id: "math_puzzle", name: "Math Puzzle & Geometric Logic", category: "reasoning" }` to `TOPIC_CATALOG`.
+- **AI Prompt Builder**:
+  - Update `generateCustomTopicPrompt`:
+    - Detect visual/puzzle topics and instruct AI to generate responsive SVG diagrams inside `diagramSvg` with `viewBox="0 0 320 220"`.
+    - Include `diagramSvg` in the JSON schema template.
+- **Visual Diagram Helper**:
+  - Export `renderQuestionVisual(question)`: renders `question.diagramSvg` within responsive wrapper classes.
+- **Built-In Math Puzzle Test Suite**:
+  - Add `MATH_PUZZLE_TEST`: 15 verified pure-logic and geometric math puzzles with inline responsive SVGs:
+    1. *Triangle Vertex-to-Center Logic* (3-triangle corner multiplication and center rule)
+    2. *Apex Division & Base Sum Triangle*
+    3. *Concentric Radial Quadrant Squares Dial*
+    4. *Concentric Circle Opposite-Sector Symmetry*
+    5. *3×3 Arithmetic Multiplier Logic Matrix*
+    6. *3×3 Vector Cross-Multiplication Matrix*
+    7. *3×3 Abstract Geometric Transformation Matrix (Shape Sequences)*
+    8. *Three-Circle Overlapping Venn Geometry*
+    9. *Four Interlocking Rings Arithmetic Overlap*
+    10. *5-Pointed Star Sum Network*
+    11. *Hexagram Dual Equilateral Triangle Balance*
+    12. *Inscribed Rectangle-Triangle Geometric Area*
+    13. *Concentric Annulus Ring Area Ratio*
+    14. *Meshed Gear Ratio & Direction Logic*
+    15. *Square Corner Dissection & Central Origami Logic*
+  - Include `MATH_PUZZLE_TEST` in `BUILTIN_TESTS` so it automatically loads for all users.
+
+### 4. `C:\COADING\Projects\exam prep app\examEngine.js`
+- **Config & State**:
+  - Add `enableQuestionTimer` and `questionTimerSeconds` (default 60s) to `ExamEngine`.
+  - In each question response, track:
+    - `timerRemaining`: countdown seconds remaining.
+    - `timerExpired`: boolean flag set when timer hits 0.
+    - `solutionRevealed`: boolean flag set when user opens solution.
+- **Tick Logic**:
+  - In `tick()`, if `enableQuestionTimer` is active and current question is not expired:
+    - Decrement `timerRemaining`.
+    - When reaching 0, set `timerExpired = true`.
+    - Emit `questionTimer` details in `onTick` callback.
+- **Methods**:
+  - Add `revealSolution(questionId)`: marks `solutionRevealed = true`.
+  - Preserve `timerRemaining` across question navigation.
+
+### 5. `C:\COADING\Projects\exam prep app\app.js`
+- **Dashboard Dual-Column Controller**:
+  - Helper `isFullLengthTest(test)`: separates tests into Full-Length Mock Tests vs AI / Single-Topic Tests.
+  - Update `renderTestCards()`:
+    - Splits filtered tests into `fullLengthTests` and `topicTests`.
+    - Updates `#count-full-length` and `#count-topic-tests` badges.
+    - Renders cards into `#cards-full-length` and `#cards-topic-tests`.
+    - Re-attaches button listeners across both column containers.
+- **Pre-Exam Configuration**:
+  - In `showPreExam(testId)`:
+    - Auto-enables `#input-enable-question-timer` by default for AI and single-topic tests.
+    - Wires toggle and custom duration inputs.
+  - In `startExam()`:
+    - Reads question timer configuration and passes to `ExamEngine`.
+- **Live Exam Execution**:
+  - In `handleTimerTick(info)`:
+    - Updates `#exam-q-timer-val` digits and applies `.timer-warning` / `.timer-expired`.
+    - When expired, unhides `#exam-solution-peek-area` while keeping options active.
+  - In `renderQuestion()`:
+    - Renders `#exam-q-visual` using `renderQuestionVisual(question)`.
+    - Updates question timer badge and solution peek visibility.
+    - Wires `#btn-peek-solution` click to reveal `#exam-solution-card` and invoke `engine.revealSolution()`.
+- **Post-Exam Evaluation / Review**:
+  - In `renderQuestionReview()`:
+    - Renders `renderQuestionVisual(q)` for each reviewed question so geometric diagrams display clearly in the solution review as well.
+
+---
+
+## Verification Plan
+
+### 1. Dual-Column Dashboard Layout
+- Open the application in desktop browser:
+  - Verify two distinct columns appear side-by-side: "Full-Length Placement Mock Tests" on the left, "AI-Generated & Topic Practice Tests" on the right.
+  - Verify test count badges display correct numbers.
+  - Switch filter tabs ("All Assessments", "Unattempted", "Attempted & Results") and verify both columns update properly.
+  - Resize viewport to mobile (< 900px) and verify columns stack cleanly into vertical rows.
+
+### 2. Per-Question Timer & Solution Peek
+- Open Pre-Exam view for an AI test:
+  - Verify "Enable Per-Question Countdown Timer" is checked by default and allows duration selection (e.g. 30s, 60s, custom).
+  - Start assessment:
+    - Verify overall exam countdown displays in header AND small question timer displays in question status bar.
+    - Verify question timer counts down per second.
+    - Let timer reach 0:
+      - Verify the question remains 100% interactive (options can still be clicked, changed, and submitted).
+      - Verify "💡 View Solution & Explanation" button appears.
+      - Click "View Solution & Explanation": verify solution card expands with correct answer and full explanation.
+      - Select an answer and click "Save & Next": verify answer is recorded and next question resets/starts its timer.
+
+### 3. Math Puzzle Topic & Geometric Visuals
+- On dashboard:
+  - Verify "Math Puzzle & Geometric Logic Assessment" appears in the Topic Practice Tests column.
+  - Verify "Math Puzzle & Geometric Logic" is listed in the AI Topic Studio topic selector.
+- Start Math Puzzle test:
+  - Verify each of the 15 questions displays a responsive, clear SVG diagram (triangles, concentric wheels, 3x3 matrices, Venn circles, star polygons, coordinate geometry).
+  - Test responsive behavior by resizing to mobile screen (360px width) — verify SVG diagrams scale smoothly without horizontal scrollbars or clipping.
+  - Submit the test and inspect the evaluation review: verify SVG diagrams and detailed step-by-step solutions render accurately.

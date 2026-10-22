@@ -1,3 +1,6 @@
+import { REASONING_TESTS } from './reasoningTests.js';
+import { MATH_PUZZLE_TEST } from './mathPuzzleTest.js';
+
 /**
  * Standard JSON Schema for Mock Assessments in ExamPrep
  */
@@ -1185,9 +1188,12 @@ export const SAMPLE_ITM_TEST = {
  * Any test added here automatically becomes available on all devices (mobile, laptop, Vercel).
  */
 export const BUILTIN_TESTS = [
-  SAMPLE_ITM_TEST
-  // Additional tests (e.g., SAMPLE_ITM_TEST_2, SAMPLE_ITM_TEST_3) can be added here
+  SAMPLE_ITM_TEST,
+  MATH_PUZZLE_TEST,
+  ...(REASONING_TESTS || [])
 ];
+
+export { REASONING_TESTS, MATH_PUZZLE_TEST };
 
 /**
  * Curated list of placement syllabus topics for quick one-click selection
@@ -1218,6 +1224,7 @@ export const TOPIC_CATALOG = [
   { id: "coding_dec", name: "Coding-Decoding", category: "reasoning" },
   { id: "dir_sense", name: "Direction Sense", category: "reasoning" },
   { id: "matrix_puz", name: "Matrix & Wheel Logic", category: "reasoning" },
+  { id: "math_puzzle", name: "Math Puzzle & Geometric Logic", category: "reasoning" },
 
   // Verbal & Grammar
   { id: "subj_verb", name: "Subject-Verb Agreement", category: "verbal" },
@@ -1252,7 +1259,7 @@ EXAM SPECIFICATIONS:
 4. Sectional Passing Benchmark: ${cutoffPercent}% minimum passing score.
 5. All questions MUST have exactly 4 distinct options (A, B, C, D) with exactly one unambiguous correct answer.
 6. Crucial Requirement: Tag every question with its specific "topic": "${cleanTopic}".
-7. If pseudo code or algorithms are involved, include clean code in the "codeSnippet" property.
+7. If pseudo code or algorithms are involved, include clean code in the "codeSnippet" property. If geometric diagrams, matrices, or visual logic puzzles are involved, provide a responsive, crisp SVG string in the "diagramSvg" property with viewBox="0 0 320 220".
 8. Provide a comprehensive, step-by-step reasoning explanation for each question.
 9. Return 100% strictly valid JSON ONLY. Do NOT wrap in conversational intro/outro text. Do NOT use markdown code fences unless strictly inside JSON.
 
@@ -1283,6 +1290,7 @@ OUTPUT JSON SCHEMA FORMAT:
           "topic": "${cleanTopic}",
           "text": "Write question text here...",
           "codeSnippet": "",
+          "diagramSvg": "",
           "options": [
             { "id": "A", "text": "First option" },
             { "id": "B", "text": "Second option" },
@@ -1296,6 +1304,22 @@ OUTPUT JSON SCHEMA FORMAT:
     }
   ]
 }`;
+}
+
+/**
+ * Renders responsive SVG diagrams or visual structures for questions (such as Math Puzzles and Geometry)
+ */
+export function renderQuestionVisual(question) {
+  if (!question) return '';
+  if (question.diagramSvg && typeof question.diagramSvg === 'string' && question.diagramSvg.trim().startsWith('<svg')) {
+    return `
+      <div class="question-visual-wrapper">
+        <div class="diagram-svg-container">
+          ${question.diagramSvg}
+        </div>
+      </div>`;
+  }
+  return '';
 }
 
 /**

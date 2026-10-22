@@ -27,6 +27,10 @@ export class ExamEngine {
     this.totalTimeSpentSeconds = 0;
     this.sectionTimeSpent = {};
 
+    // Per-question countdown timer configuration
+    this.enableQuestionTimer = Boolean(this.config.enableQuestionTimer);
+    this.questionTimerSeconds = Number(this.config.questionTimerSeconds) || 60;
+
     // Setup timers
     if (this.config.timerMode === "section") {
       this.currentSectionSecondsRemaining = (this.getActiveSection().durationMinutes || 15) * 60;
@@ -47,7 +51,10 @@ export class ExamEngine {
           selectedOption: null,
           visited: false,
           markedForReview: false,
-          timeSpentSeconds: 0
+          timeSpentSeconds: 0,
+          timerRemaining: this.questionTimerSeconds,
+          timerExpired: false,
+          solutionRevealed: false
         };
         // For subjective questions, store text instead of option
         if (q.type === "subjective") {
@@ -78,6 +85,13 @@ export class ExamEngine {
     }
   }
 
+  revealSolution(questionId) {
+    const qId = questionId || (this.getCurrentQuestion()?.id);
+    if (qId && this.responses[qId]) {
+      this.responses[qId].solutionRevealed = true;
+    }
+  }
+
   tick() {
     this.totalTimeSpentSeconds++;
 
@@ -87,10 +101,28 @@ export class ExamEngine {
       this.sectionTimeSpent[activeSec.id] = (this.sectionTimeSpent[activeSec.id] || 0) + 1;
     }
 
-    // Track time per question
+    // Track time per question & decrement per-question countdown
     const currentQ = this.getCurrentQuestion();
+    let qTimerInfo = null;
     if (currentQ && this.responses[currentQ.id]) {
-      this.responses[currentQ.id].timeSpentSeconds = (this.responses[currentQ.id].timeSpentSeconds || 0) + 1;
+      const resp = this.responses[currentQ.id];
+      resp.timeSpentSeconds = (resp.timeSpentSeconds || 0) + 1;
+
+      if (this.enableQuestionTimer && !resp.timerExpired) {
+        resp.timerRemaining = Math.max(0, (resp.timerRemaining ?? this.questionTimerSeconds) - 1);
+        if (resp.timerRemaining <= 0) {
+          resp.timerExpired = true;
+        }
+      }
+
+      if (this.enableQuestionTimer) {
+        qTimerInfo = {
+          remainingSeconds: resp.timerRemaining ?? 0,
+          expired: Boolean(resp.timerExpired),
+          solutionRevealed: Boolean(resp.solutionRevealed),
+          questionId: currentQ.id
+        };
+      }
     }
 
     if (this.config.timerMode === "section") {
@@ -100,7 +132,8 @@ export class ExamEngine {
         remainingSeconds: Math.max(0, this.currentSectionSecondsRemaining),
         totalTimeSpent: this.totalTimeSpentSeconds,
         sectionName: this.getActiveSection().name,
-        sectionIndex: this.activeSectionIndex
+        sectionIndex: this.activeSectionIndex,
+        questionTimer: qTimerInfo
       });
 
       if (this.currentSectionSecondsRemaining <= 0) {
@@ -116,7 +149,8 @@ export class ExamEngine {
       this.onTick({
         mode: "overall",
         remainingSeconds: Math.max(0, this.totalSecondsRemaining),
-        totalTimeSpent: this.totalTimeSpentSeconds
+        totalTimeSpent: this.totalTimeSpentSeconds,
+        questionTimer: qTimerInfo
       });
 
       if (this.totalSecondsRemaining <= 0) {

@@ -95,9 +95,41 @@
         </div>
       </div>
 
-      <!-- Assessments Cards Grid -->
-      <div class="assessments-grid" id="assessments-grid-container">
-        <!-- Rendered dynamically via app.js -->
+      <!-- Dual-Column Assessments Layout -->
+      <div class="dashboard-columns-container" id="dashboard-columns-container">
+        <!-- Column 1: Full-Length Placement Mock Tests -->
+        <div class="dashboard-column" id="col-full-length">
+          <div class="column-header">
+            <div class="column-header-title">
+              <span class="column-icon">🎓</span>
+              <div>
+                <h3>Full-Length Placement Mock Tests</h3>
+                <p>Complete multi-section exams simulating company placement drives</p>
+              </div>
+            </div>
+            <span class="column-count-badge" id="count-full-length">0 Tests</span>
+          </div>
+          <div class="column-cards-list" id="cards-full-length">
+            <!-- Cards rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Column 2: AI-Generated & Single-Topic Tests -->
+        <div class="dashboard-column" id="col-topic-tests">
+          <div class="column-header">
+            <div class="column-header-title">
+              <span class="column-icon">⚡</span>
+              <div>
+                <h3>Topic Practice & AI Tests</h3>
+                <p>Focused practice tests for targeted subject mastery & weak topics</p>
+              </div>
+            </div>
+            <span class="column-count-badge" id="count-topic-tests">0 Tests</span>
+          </div>
+          <div class="column-cards-list" id="cards-topic-tests">
+            <!-- Cards rendered dynamically -->
+          </div>
+        </div>
       </div>
     </section>
 
@@ -175,6 +207,33 @@
               <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px;">Negative Penalty per Incorrect</span>
               <input type="number" id="input-marks-penalty" class="input-text" style="max-width: 110px;" value="0" step="0.25">
               <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px;">Use 0.25 or 0 for no penalty</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Per-Question Speed Timer (for Topic/AI tests & rapid practice) -->
+        <div class="config-form-group" id="config-group-question-timer">
+          <label class="config-label">5. Per-Question Speed Timer</label>
+          <div class="toggle-switch-row" style="margin-bottom: 12px;">
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Enable Per-Question Countdown Timer</div>
+              <div style="font-size: 12px; color: var(--text-muted);">
+                Adds an individual question timer. When it expires, you can still answer freely and unlock the "View Solution & Explanation" peek button.
+              </div>
+            </div>
+            <input type="checkbox" id="input-enable-question-timer" style="width: 18px; height: 18px; cursor: pointer;">
+          </div>
+          <div id="wrapper-question-timer-sec" style="display: none; padding-left: 4px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary);" for="select-question-timer-sec">Time allocated per question:</label>
+              <select id="select-question-timer-sec" class="input-text" style="max-width: 160px;">
+                <option value="30">30 Seconds (Blitz)</option>
+                <option value="60" selected>60 Seconds (Standard)</option>
+                <option value="90">90 Seconds (Moderate)</option>
+                <option value="120">2 Minutes (Deep)</option>
+                <option value="custom">Custom Seconds...</option>
+              </select>
+              <input type="number" id="input-custom-question-sec" class="input-text" style="max-width: 100px; display: none;" value="45" min="10" max="600" placeholder="Seconds">
             </div>
           </div>
         </div>
@@ -358,27 +417,13 @@
         <div class="ai-gen-card">
           <div class="ai-card-step-badge">Step 1: Configure Practice Topic & Parameters</div>
 
-          <!-- Quick Topic Preset Chips -->
-          <div class="form-group" style="margin-bottom: 16px;">
-            <label class="config-label">Quick Select Placement Topic:</label>
-            <div class="topic-chips-container" id="ai-topic-chips-container">
-              <!-- Rendered dynamically from TOPIC_CATALOG or fallback -->
-              <button type="button" class="topic-chip active" data-topic="Dynamic Programming">Dynamic Programming</button>
-              <button type="button" class="topic-chip" data-topic="Binary Trees & BST">Binary Trees & BST</button>
-              <button type="button" class="topic-chip" data-topic="Time & Work">Time & Work</button>
-              <button type="button" class="topic-chip" data-topic="P&C and Probability">P&C & Probability</button>
-              <button type="button" class="topic-chip" data-topic="Syllogism & Deductions">Syllogism</button>
-              <button type="button" class="topic-chip" data-topic="Bitwise Operators & Pseudo Code">Bitwise Pseudo Code</button>
-              <button type="button" class="topic-chip" data-topic="SQL Queries & Indexing">SQL Queries</button>
-              <button type="button" class="topic-chip" data-topic="Subject-Verb Agreement">Grammar Rules</button>
-              <button type="button" class="topic-chip" data-topic="Deadlocks & CPU Scheduling">Deadlocks & OS</button>
-            </div>
-          </div>
-
           <!-- Custom Topic Input -->
           <div class="form-group" style="margin-bottom: 20px;">
-            <label class="config-label" for="input-gen-topic">Or Type Any Custom Topic / Subject:</label>
-            <input type="text" id="input-gen-topic" class="input-text" style="max-width: 100%;" value="Dynamic Programming" placeholder="e.g. Graph BFS/DFS, Trie Data Structure, Speed Distance...">
+            <label class="config-label" for="input-gen-topic">Enter Topic / Subject Name:</label>
+            <input type="text" id="input-gen-topic" class="input-text" style="max-width: 100%;" value="Dynamic Programming" placeholder="e.g. Syllogism, Blood Relations, Graph BFS/DFS, Time & Work...">
+            <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+              You can also customize or edit this directly inside the AI prompt in Step 2.
+            </span>
           </div>
 
           <!-- Parameter Controls Grid -->
@@ -428,23 +473,33 @@
 
         <!-- STEP 2: Interactive AI Prompt Box -->
         <div class="ai-gen-card">
-          <div class="ai-card-step-badge">Step 2: Copy AI Prompt</div>
+          <div class="ai-card-step-badge">Step 2: Copy & Edit AI Prompt</div>
           <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
-            Copy this auto-generated prompt and paste it into <strong>AntiGravity</strong>, <strong>Claude</strong>, or <strong>ChatGPT</strong>. The AI will output the exact test JSON compatible with this platform.
+            Review or edit this auto-generated prompt directly below, then copy and paste it into <strong>AntiGravity</strong>, <strong>Claude</strong>, or <strong>ChatGPT</strong>. The AI will output the exact test JSON skeleton compatible with this platform.
           </p>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">AI Prompt Template:</span>
+            <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">AI Prompt Template (Editable):</span>
             <button class="btn btn-primary btn-sm" id="btn-copy-gen-prompt">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               📋 Copy AI Prompt
             </button>
           </div>
-          <textarea id="textarea-gen-prompt" class="code-textarea" style="height: 160px; font-size: 12px;" readonly></textarea>
+          <textarea id="textarea-gen-prompt" class="code-textarea" style="height: 180px; font-size: 12px;" placeholder="Prompt template will appear here and can be edited directly..."></textarea>
         </div>
 
         <!-- STEP 3: JSON Import & Target Destination -->
         <div class="ai-gen-card">
           <div class="ai-card-step-badge">Step 3: Import JSON & Launch Assessment</div>
+
+          <!-- Custom Test Title Input -->
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="config-label" for="input-gen-custom-title">Name Your Test Manually (Optional):</label>
+            <input type="text" id="input-gen-custom-title" class="input-text" style="max-width: 100%;" placeholder="e.g. My Reasoning Hard Test (leave blank to use title from JSON)">
+            <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+              Specify a custom title for the test card, or leave blank to automatically use the title defined in the JSON.
+            </span>
+          </div>
+
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Paste Generated JSON:</span>
             <button class="btn btn-outline btn-sm" id="btn-load-sample-ai-json">
@@ -542,7 +597,14 @@
       <div class="exam-main-panel">
         <div class="question-status-header">
           <div class="q-number-title" id="exam-q-number-title">Question 1 of 10</div>
-          <div class="q-marks-pill" id="exam-q-marks-pill">+1.0 / -0.0 Marks</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="q-timer-badge" id="exam-q-timer-badge" style="display: none;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              <span>Q Time:</span>
+              <strong id="exam-q-timer-val">00:60</strong>
+            </div>
+            <div class="q-marks-pill" id="exam-q-marks-pill">+1.0 / -0.0 Marks</div>
+          </div>
         </div>
 
         <div class="question-body" id="exam-q-text">
@@ -552,9 +614,31 @@
         <!-- Optional Code Block -->
         <div id="exam-q-code" class="question-code-block" style="display: none;"></div>
 
+        <!-- Optional Visual / SVG Diagram Container -->
+        <div id="exam-q-visual" class="question-visual-box" style="display: none;"></div>
+
         <!-- Options Container (MCQ Sections 1 to 6 or Subjective Writing for Section 7) -->
         <div class="options-list" id="exam-options-container">
           <!-- Rendered dynamically -->
+        </div>
+
+        <!-- In-Exam Solution Peek Area (unlocked when question timer expires or on-demand) -->
+        <div id="exam-solution-peek-area" class="exam-solution-peek-area" style="display: none;">
+          <div class="solution-peek-banner">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="solution-peek-icon">💡</span>
+              <div>
+                <strong style="font-size: 13px; color: var(--accent-amber);">Time Target Reached:</strong>
+                <span style="font-size: 12px; color: var(--text-secondary);">You can still solve and submit this question. Peek at the explanation if stuck:</span>
+              </div>
+            </div>
+            <button class="btn btn-outline btn-sm btn-peek-trigger" id="btn-peek-solution">
+              View Solution & Explanation
+            </button>
+          </div>
+          <div id="exam-solution-card" class="in-exam-solution-card" style="display: none;">
+            <!-- Rendered dynamically -->
+          </div>
         </div>
 
         <!-- Exam Bottom Action Bar -->

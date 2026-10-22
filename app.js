@@ -10,7 +10,8 @@ import {
   BUILTIN_TESTS,
   TOPIC_CATALOG,
   generateCustomTopicPrompt,
-  AI_SAMPLE_TOPIC_TEST
+  AI_SAMPLE_TOPIC_TEST,
+  renderQuestionVisual
 } from './schema.js';
 import { ExamEngine } from './examEngine.js';
 import { evaluateAssessment, renderSectionBarChart } from './analytics.js';
@@ -278,9 +279,97 @@ function renderHeroStats() {
   $('#stat-avg-score').textContent = `${avgScore}%`;
 }
 
+function isFullLengthTest(test) {
+  if (!test) return false;
+  if (test.id === 'itm-placement-mock-1') return true;
+  if (test.sections && test.sections.length >= 3) return true;
+  if (getTotalQuestions(test) >= 40) return true;
+  if (/full.?length|placement mock/i.test(test.title || '')) return true;
+  return false;
+}
+
+function renderSingleCard(test, attemptedIds) {
+  const isAttempted = attemptedIds.has(test.id);
+  const latestResult = getLatestResult(test.id);
+  const totalQ = getTotalQuestions(test);
+  const totalM = getTotalMarks(test);
+  const duration = getTotalDuration(test);
+  const sectionCount = (test.sections || []).length;
+
+  let resultBlock = '';
+  if (isAttempted && latestResult) {
+    const scoreClass = latestResult.isPassed ? 'passed' : 'failed';
+    const cutoffStatus = latestResult.cutoffResults
+      ? (latestResult.cutoffResults.allPassed ? 'Passed All Cutoffs ✓' : 'Failed Sectional Cutoff ✗')
+      : '';
+    resultBlock = `
+      <div class="card-last-result">
+        <div>
+          <div class="last-result-score ${scoreClass}">${latestResult.scorePercent}%</div>
+          <div style="font-size:11px; color: var(--text-muted);">${latestResult.isPassed ? 'PASSED' : 'FAILED'}</div>
+        </div>
+        <div class="last-result-meta">
+          <div>${latestResult.formattedDate || ''}</div>
+          ${cutoffStatus ? `<div style="margin-top:2px; font-weight:600; color: ${latestResult.cutoffResults?.allPassed ? 'var(--status-answered)' : 'var(--status-unanswered)'};">${cutoffStatus}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  const isAiTest = test.companyOrType === 'AI Generated Test' || (test.id && test.id.startsWith('ai-test'));
+  const isMathPuzzle = test.id === 'test-math-puzzle-geometric-logic';
+
+  let badgeExtra = '';
+  if (isAiTest) {
+    badgeExtra = '<span class="card-badge" style="background:#EFF6FF; color:#2563EB; border:1px solid #BFDBFE; font-weight:700;">⚡ AI TOPIC TEST</span>';
+  } else if (isMathPuzzle) {
+    badgeExtra = '<span class="card-badge" style="background:#FEF3C7; color:#B45309; border:1px solid #FDE68A; font-weight:700;">🧩 VISUAL PUZZLES</span>';
+  }
+
+  return `
+    <div class="assessment-card" data-test-id="${test.id}">
+      <div class="card-header-row">
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <span class="card-badge ${isAttempted ? 'badge-attempted' : 'badge-unattempted'}">
+            ${isAttempted ? 'ATTEMPTED' : 'UNATTEMPTED'}
+          </span>
+          ${badgeExtra}
+        </div>
+        <button class="btn btn-outline btn-sm btn-delete-test" data-test-id="${test.id}" title="Delete test" style="padding:4px 8px; font-size:11px; color:var(--status-unanswered);">✕</button>
+      </div>
+      <div class="card-title">${escapeHtml(test.title)}</div>
+      <div class="card-org">${escapeHtml(test.companyOrType || '')}</div>
+      <div class="card-meta-list">
+        <span class="card-meta-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h5"/><path d="M15 11h5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-5"/><rect x="9" y="3" width="6" height="18" rx="1"/></svg>
+          ${totalQ} Questions
+        </span>
+        <span class="card-meta-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          ${duration} mins
+        </span>
+        <span class="card-meta-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          ${sectionCount} Section${sectionCount > 1 ? 's' : ''}
+        </span>
+        <span class="card-meta-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          ${totalM} Marks
+        </span>
+      </div>
+      ${resultBlock}
+      <div class="card-actions">
+        <button class="btn ${isAttempted ? 'btn-outline' : 'btn-primary'} btn-sm btn-start-test" data-test-id="${test.id}">
+          ${isAttempted ? 'Re-Attempt' : 'Start Assessment'}
+        </button>
+        ${isAttempted ? `<button class="btn btn-secondary btn-sm btn-view-results" data-test-id="${test.id}">View Results</button>` : ''}
+      </div>
+    </div>`;
+}
+
 function renderTestCards() {
-  const container = $('#assessments-grid-container');
-  if (!container) return;
+  const containerFull = $('#cards-full-length');
+  const containerTopic = $('#cards-topic-tests');
+  if (!containerFull || !containerTopic) return;
 
   const attemptedIds = new Set(state.results.map(r => r.testId));
   let testsToShow = [...state.tests];
@@ -291,106 +380,54 @@ function renderTestCards() {
     testsToShow = testsToShow.filter(t => !attemptedIds.has(t.id));
   }
 
-  if (testsToShow.length === 0) {
-    container.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-muted);">
-        <div style="font-size: 40px; margin-bottom: 12px;">📋</div>
-        <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">No assessments found</div>
-        <div style="font-size: 13px;">Upload a mock test JSON or load a sample test to get started.</div>
-      </div>`;
-    return;
+  const fullLengthTests = testsToShow.filter(isFullLengthTest);
+  const topicTests = testsToShow.filter(t => !isFullLengthTest(t));
+
+  const badgeFull = $('#count-full-length');
+  if (badgeFull) badgeFull.textContent = `${fullLengthTests.length} Test${fullLengthTests.length === 1 ? '' : 's'}`;
+
+  const badgeTopic = $('#count-topic-tests');
+  if (badgeTopic) badgeTopic.textContent = `${topicTests.length} Test${topicTests.length === 1 ? '' : 's'}`;
+
+  if (fullLengthTests.length === 0) {
+    containerFull.innerHTML = `<div class="column-empty-state">No full-length mock tests found matching this filter.</div>`;
+  } else {
+    containerFull.innerHTML = fullLengthTests.map(t => renderSingleCard(t, attemptedIds)).join('');
   }
 
-  container.innerHTML = testsToShow.map(test => {
-    const isAttempted = attemptedIds.has(test.id);
-    const latestResult = getLatestResult(test.id);
-    const totalQ = getTotalQuestions(test);
-    const totalM = getTotalMarks(test);
-    const duration = getTotalDuration(test);
-    const sectionCount = (test.sections || []).length;
+  if (topicTests.length === 0) {
+    containerTopic.innerHTML = `<div class="column-empty-state">No topic practice or AI tests found matching this filter.</div>`;
+  } else {
+    containerTopic.innerHTML = topicTests.map(t => renderSingleCard(t, attemptedIds)).join('');
+  }
 
-    let resultBlock = '';
-    if (isAttempted && latestResult) {
-      const scoreClass = latestResult.isPassed ? 'passed' : 'failed';
-      const cutoffStatus = latestResult.cutoffResults
-        ? (latestResult.cutoffResults.allPassed ? 'Passed All Cutoffs ✓' : 'Failed Sectional Cutoff ✗')
-        : '';
-      resultBlock = `
-        <div class="card-last-result">
-          <div>
-            <div class="last-result-score ${scoreClass}">${latestResult.scorePercent}%</div>
-            <div style="font-size:11px; color: var(--text-muted);">${latestResult.isPassed ? 'PASSED' : 'FAILED'}</div>
-          </div>
-          <div class="last-result-meta">
-            <div>${latestResult.formattedDate || ''}</div>
-            ${cutoffStatus ? `<div style="margin-top:2px; font-weight:600; color: ${latestResult.cutoffResults?.allPassed ? 'var(--status-answered)' : 'var(--status-unanswered)'};">${cutoffStatus}</div>` : ''}
-          </div>
-        </div>`;
-    }
-
-    return `
-      <div class="assessment-card" data-test-id="${test.id}">
-        <div class="card-header-row">
-          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-            <span class="card-badge ${isAttempted ? 'badge-attempted' : 'badge-unattempted'}">
-              ${isAttempted ? 'ATTEMPTED' : 'UNATTEMPTED'}
-            </span>
-            ${test.companyOrType === 'AI Generated Test' || (test.id && test.id.startsWith('ai-test')) ? '<span class="card-badge" style="background:#EFF6FF; color:#2563EB; border:1px solid #BFDBFE; font-weight:700;">⚡ AI TOPIC TEST</span>' : ''}
-          </div>
-          <button class="btn btn-outline btn-sm btn-delete-test" data-test-id="${test.id}" title="Delete test" style="padding:4px 8px; font-size:11px; color:var(--status-unanswered);">✕</button>
-        </div>
-        <div class="card-title">${escapeHtml(test.title)}</div>
-        <div class="card-org">${escapeHtml(test.companyOrType || '')}</div>
-        <div class="card-meta-list">
-          <span class="card-meta-item">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h5"/><path d="M15 11h5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-5"/><rect x="9" y="3" width="6" height="18" rx="1"/></svg>
-            ${totalQ} Questions
-          </span>
-          <span class="card-meta-item">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            ${duration} mins
-          </span>
-          <span class="card-meta-item">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            ${sectionCount} Sections
-          </span>
-          <span class="card-meta-item">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-            ${totalM} Marks
-          </span>
-        </div>
-        ${resultBlock}
-        <div class="card-actions">
-          <button class="btn ${isAttempted ? 'btn-outline' : 'btn-primary'} btn-sm btn-start-test" data-test-id="${test.id}">
-            ${isAttempted ? 'Re-Attempt' : 'Start Assessment'}
-          </button>
-          ${isAttempted ? `<button class="btn btn-secondary btn-sm btn-view-results" data-test-id="${test.id}">View Results</button>` : ''}
-        </div>
-      </div>`;
-  }).join('');
-
-  // Wire card buttons
-  container.querySelectorAll('.btn-start-test').forEach(btn => {
-    btn.addEventListener('click', () => showPreExam(btn.dataset.testId));
-  });
-  container.querySelectorAll('.btn-view-results').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const r = getLatestResult(btn.dataset.testId);
-      if (r) showEvaluation(r);
+  // Wire card buttons across both columns
+  const wireCardsIn = (root) => {
+    root.querySelectorAll('.btn-start-test').forEach(btn => {
+      btn.addEventListener('click', () => showPreExam(btn.dataset.testId));
     });
-  });
-  container.querySelectorAll('.btn-delete-test').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (confirm('Delete this test and all its results? This cannot be undone.')) {
-        const tid = btn.dataset.testId;
-        state.tests = state.tests.filter(t => t.id !== tid);
-        state.results = state.results.filter(r => r.testId !== tid);
-        saveState();
-        renderDashboard();
-      }
+    root.querySelectorAll('.btn-view-results').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const r = getLatestResult(btn.dataset.testId);
+        if (r) showEvaluation(r);
+      });
     });
-  });
+    root.querySelectorAll('.btn-delete-test').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm('Delete this test and all its results? This cannot be undone.')) {
+          const tid = btn.dataset.testId;
+          state.tests = state.tests.filter(t => t.id !== tid);
+          state.results = state.results.filter(r => r.testId !== tid);
+          saveState();
+          renderDashboard();
+        }
+      });
+    });
+  };
+
+  wireCardsIn(containerFull);
+  wireCardsIn(containerTopic);
 }
 
 /* ==========================================================================
@@ -425,6 +462,25 @@ function showPreExam(testId) {
   // Section switching — off by default in section-strict mode
   const switchCheck = $('#input-allow-section-switching');
   switchCheck.checked = !timerSection.checked;
+
+  // Speed / Question Timer: default ON for single-topic & AI tests, OFF for full-length mocks
+  const isTopic = !isFullLengthTest(test);
+  const qTimerCheck = $('#input-enable-question-timer');
+  const qTimerWrapper = $('#wrapper-question-timer-sec');
+  const qTimerSelect = $('#select-question-timer-sec');
+  const qTimerCustom = $('#input-custom-question-sec');
+
+  if (qTimerCheck && qTimerWrapper) {
+    qTimerCheck.checked = isTopic;
+    qTimerWrapper.style.display = isTopic ? '' : 'none';
+  }
+  if (qTimerSelect) {
+    qTimerSelect.value = '60';
+  }
+  if (qTimerCustom) {
+    qTimerCustom.style.display = 'none';
+    qTimerCustom.value = '45';
+  }
 
   // Render sectional cutoff config
   renderCutoffConfig(test);
@@ -511,6 +567,16 @@ function startExam() {
     });
   }
 
+  // Collect question speed timer config
+  const enableQuestionTimer = $('#input-enable-question-timer')?.checked || false;
+  let questionTimerSeconds = 60;
+  const selectTimerVal = $('#select-question-timer-sec')?.value;
+  if (selectTimerVal === 'custom') {
+    questionTimerSeconds = parseInt($('#input-custom-question-sec')?.value) || 60;
+  } else {
+    questionTimerSeconds = parseInt(selectTimerVal) || 60;
+  }
+
   const config = {
     timerMode,
     customDurationMinutes: customDuration,
@@ -519,6 +585,8 @@ function startExam() {
     negativeMarks,
     enableCutoffs,
     sectionCutoffs,
+    enableQuestionTimer,
+    questionTimerSeconds,
   };
 
   state.examConfig = config;
@@ -604,6 +672,55 @@ function renderQuestion() {
   } else {
     codeBlock.style.display = 'none';
     codeBlock.textContent = '';
+  }
+
+  // Visual / SVG Diagram for Math Puzzles and Geometry
+  const visualBlock = $('#exam-q-visual');
+  if (visualBlock) {
+    const visualHtml = renderQuestionVisual(question);
+    if (visualHtml) {
+      visualBlock.innerHTML = visualHtml;
+      visualBlock.style.display = 'block';
+    } else {
+      visualBlock.innerHTML = '';
+      visualBlock.style.display = 'none';
+    }
+  }
+
+  // Question Timer Badge
+  const qTimerBadge = $('#exam-q-timer-badge');
+  const qTimerVal = $('#exam-q-timer-val');
+  if (engine.enableQuestionTimer && qTimerBadge && qTimerVal) {
+    qTimerBadge.style.display = 'inline-flex';
+    const rem = response?.timerRemaining ?? engine.questionTimerSeconds;
+    const mins = Math.floor(rem / 60);
+    const secs = rem % 60;
+    qTimerVal.textContent = mins > 0 ? `${mins}:${secs < 10 ? '0' : ''}${secs}` : `${secs}s`;
+    qTimerBadge.classList.toggle('timer-expired', !!response?.timerExpired);
+    qTimerBadge.classList.toggle('timer-warning', rem > 0 && rem <= 15);
+  } else if (qTimerBadge) {
+    qTimerBadge.style.display = 'none';
+  }
+
+  // Solution Peek Area & Card State
+  const peekArea = $('#exam-solution-peek-area');
+  const solutionCard = $('#exam-solution-card');
+  if (peekArea) {
+    if (engine.enableQuestionTimer && (response?.timerExpired || response?.solutionRevealed)) {
+      peekArea.style.display = 'block';
+      if (response?.solutionRevealed && solutionCard) {
+        solutionCard.style.display = 'block';
+        solutionCard.innerHTML = `
+          <div class="solution-answer-badge">✓ Correct Answer: ${question.correctAnswer ? ('Option ' + question.correctAnswer) : 'Solution'}</div>
+          <div style="margin-top: 6px; line-height: 1.6;">${question.explanation || 'No detailed explanation provided.'}</div>
+        `;
+      } else if (solutionCard) {
+        solutionCard.style.display = 'none';
+      }
+    } else {
+      peekArea.style.display = 'none';
+      if (solutionCard) solutionCard.style.display = 'none';
+    }
   }
 
   // Palette subtitle
@@ -753,6 +870,32 @@ function handleTimerTick(info) {
     wrapper.classList.add('timer-warning');
   } else {
     wrapper.classList.remove('timer-warning');
+  }
+
+  // Handle per-question speed timer countdown & solution peek reveal
+  const qTimerBadge = $('#exam-q-timer-badge');
+  const qTimerVal = $('#exam-q-timer-val');
+  const peekArea = $('#exam-solution-peek-area');
+
+  if (info.questionTimer && qTimerBadge && qTimerVal) {
+    qTimerBadge.style.display = 'inline-flex';
+    const rem = info.questionTimer.remainingSeconds;
+    const mins = Math.floor(rem / 60);
+    const secs = rem % 60;
+    qTimerVal.textContent = mins > 0 ? `${mins}:${secs < 10 ? '0' : ''}${secs}` : `${secs}s`;
+
+    if (info.questionTimer.expired || rem <= 0) {
+      qTimerBadge.classList.remove('timer-warning');
+      qTimerBadge.classList.add('timer-expired');
+      if (peekArea) peekArea.style.display = 'block';
+    } else if (rem <= 15) {
+      qTimerBadge.classList.add('timer-warning');
+      qTimerBadge.classList.remove('timer-expired');
+    } else {
+      qTimerBadge.classList.remove('timer-warning', 'timer-expired');
+    }
+  } else if (qTimerBadge) {
+    qTimerBadge.style.display = 'none';
   }
 }
 
@@ -1151,6 +1294,7 @@ function renderQuestionReview(result, test, filter = 'all') {
           </div>
           <div style="font-size:15px; line-height:1.6; color:var(--text-primary); margin-bottom:8px;">${q.text}</div>
           ${q.codeSnippet ? `<div class="question-code-block">${escapeHtml(q.codeSnippet)}</div>` : ''}
+          ${renderQuestionVisual(q)}
           ${optionsHtml}
           ${q.explanation ? `<div class="review-explanation"><strong>Explanation:</strong> ${q.explanation}</div>` : ''}
         </div>`;
@@ -1256,6 +1400,42 @@ function init() {
       }
     });
   });
+
+  // ── Pre-Exam Speed / Question Timer Events ──
+  const qTimerCheck = $('#input-enable-question-timer');
+  const qTimerWrapper = $('#wrapper-question-timer-sec');
+  const qTimerSelect = $('#select-question-timer-sec');
+  const qTimerCustom = $('#input-custom-question-sec');
+
+  if (qTimerCheck && qTimerWrapper) {
+    qTimerCheck.addEventListener('change', () => {
+      qTimerWrapper.style.display = qTimerCheck.checked ? '' : 'none';
+    });
+  }
+  if (qTimerSelect && qTimerCustom) {
+    qTimerSelect.addEventListener('change', () => {
+      qTimerCustom.style.display = qTimerSelect.value === 'custom' ? '' : 'none';
+    });
+  }
+
+  // ── In-Exam Solution Peek Event ──
+  const btnPeek = $('#btn-peek-solution');
+  if (btnPeek) {
+    btnPeek.addEventListener('click', () => {
+      if (!state.engine) return;
+      const currentQ = state.engine.getCurrentQuestion();
+      if (!currentQ) return;
+      state.engine.revealSolution(currentQ.id);
+      const card = $('#exam-solution-card');
+      if (card) {
+        card.style.display = 'block';
+        card.innerHTML = `
+          <div class="solution-answer-badge">✓ Correct Answer: ${currentQ.correctAnswer ? ('Option ' + currentQ.correctAnswer) : 'Solution'}</div>
+          <div style="margin-top: 6px; line-height: 1.6;">${currentQ.explanation || 'No detailed explanation provided.'}</div>
+        `;
+      }
+    });
+  }
 
   // ── Exam Action Buttons ──
   $('#btn-save-next').addEventListener('click', () => {
@@ -1405,23 +1585,9 @@ function init() {
   }
 
   // ── AI Studio Interactive Controls ──
-  $$('.topic-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      $$('.topic-chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      const topic = chip.dataset.topic;
-      const topicInput = $('#input-gen-topic');
-      if (topicInput) topicInput.value = topic;
-      updateAIPromptPreview();
-    });
-  });
-
   const topicInput = $('#input-gen-topic');
   if (topicInput) {
-    topicInput.addEventListener('input', () => {
-      $$('.topic-chip').forEach(c => c.classList.remove('active'));
-      updateAIPromptPreview();
-    });
+    topicInput.addEventListener('input', updateAIPromptPreview);
   }
 
   ['select-gen-count', 'select-gen-difficulty', 'input-gen-duration', 'input-gen-marks', 'input-gen-negative', 'input-gen-cutoff'].forEach(id => {
@@ -1657,6 +1823,11 @@ function handleSaveAITest(launchImmediately = false) {
     msgBox.style.display = 'block';
     msgBox.textContent = `✗ ${err.message}`;
     return;
+  }
+
+  const customTitle = $('#input-gen-custom-title')?.value?.trim();
+  if (customTitle) {
+    testObj.title = customTitle;
   }
 
   const destination = $('input[name="genDestination"]:checked')?.value || 'standalone';
