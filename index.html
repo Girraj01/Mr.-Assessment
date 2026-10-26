@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -15,11 +15,18 @@
        Main Platform Navigation Header
        ======================================================================= -->
   <header class="app-header" id="app-header">
-    <div class="brand-wrapper" id="brand-home-btn">
-      <div class="brand-icon">PT</div>
-      <div>
-        <span class="brand-title">PrepTech</span>
-        <span class="brand-subtitle">Technical MCQ Assessment Engine</span>
+    <div class="header-left">
+      <!-- Universal Back Button (shown on all non-dashboard views) -->
+      <button class="btn btn-outline btn-sm header-back-btn" id="btn-header-back" style="display:none;" title="Go back to previous screen">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <span>Back</span>
+      </button>
+      <div class="brand-wrapper" id="brand-home-btn">
+        <div class="brand-icon">PT</div>
+        <div>
+          <span class="brand-title">PrepTech</span>
+          <span class="brand-subtitle">Technical MCQ Assessment Engine</span>
+        </div>
       </div>
     </div>
     <div class="header-actions">
@@ -138,6 +145,12 @@
          ======================================================================= -->
     <section class="view-section" id="view-pre-exam">
       <div class="pre-exam-box">
+        <div class="pre-exam-topbar" style="margin-bottom: 16px;">
+          <button class="btn btn-outline btn-sm" id="btn-pre-exam-top-back">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            <span>Back to Dashboard</span>
+          </button>
+        </div>
         <div class="pre-exam-header">
           <div style="margin-bottom: 8px;">
             <span class="card-badge badge-unattempted" id="pre-exam-badge">Assessment Configuration</span>
@@ -256,6 +269,15 @@
          VIEW 3: Post-Exam Evaluation & Analytics View
          ======================================================================= -->
     <section class="view-section" id="view-evaluation">
+      <!-- Top Navigation & Return -->
+      <div class="eval-topbar" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+        <button class="btn btn-outline btn-sm" id="btn-eval-top-back">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <span>Back to Dashboard</span>
+        </button>
+        <span class="card-badge badge-attempted" style="font-weight: 700;">Scorecard & Diagnostics</span>
+      </div>
+
       <!-- Evaluation Header / Hero -->
       <div class="eval-hero-card">
         <div class="eval-title-block">
@@ -563,6 +585,10 @@
     <!-- Exam Top Bar -->
     <header class="exam-topbar">
       <div class="exam-top-left">
+        <button class="btn btn-outline btn-sm" id="btn-exam-exit" title="Exit Assessment" style="padding: 4px 10px; font-size: 12px; gap: 4px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <span>Exit</span>
+        </button>
         <div class="brand-icon" style="width: 28px; height: 28px; font-size: 14px;">PT</div>
         <div class="exam-test-name" id="exam-header-title">Technical Assessment</div>
       </div>

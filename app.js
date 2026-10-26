@@ -134,6 +134,23 @@ function parseQuestionText(text) {
    View Switching
    ========================================================================== */
 
+/* ==========================================================================
+   View Navigation System (SPA Single-Page Architecture with History Support)
+   ========================================================================== */
+
+const navigationHistory = ['view-dashboard'];
+let isHandlingPopState = false;
+
+function updateHeaderBackButton(viewId) {
+  const backBtn = $('#btn-header-back');
+  if (!backBtn) return;
+  if (viewId === 'view-dashboard') {
+    backBtn.style.display = 'none';
+  } else {
+    backBtn.style.display = 'inline-flex';
+  }
+}
+
 function switchView(viewId) {
   $$('.view-section').forEach(v => v.classList.remove('active'));
   const target = $(`#${viewId}`);
@@ -150,16 +167,50 @@ function switchView(viewId) {
     $('#app-header').style.display = '';
     $('.main-container').style.display = '';
   }
+
+  updateHeaderBackButton(viewId);
+  window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
-function showDashboard() {
+function navigateTo(viewId, pushHistory = true, metadata = {}) {
+  switchView(viewId);
+
+  if (pushHistory && !isHandlingPopState) {
+    if (navigationHistory[navigationHistory.length - 1] !== viewId) {
+      navigationHistory.push(viewId);
+    }
+    const stateObj = { viewId, ...metadata };
+    try {
+      window.history.pushState(stateObj, '', '');
+    } catch (e) {}
+  }
+}
+
+function goBack() {
+  if (state.engine) {
+    const confirmExit = confirm('Are you sure you want to exit the current assessment? Your progress will not be submitted.');
+    if (!confirmExit) return;
+    if (state.engine.overallInterval) clearInterval(state.engine.overallInterval);
+    if (state.engine.questionTimerInterval) clearInterval(state.engine.questionTimerInterval);
+    state.engine = null;
+  }
+
+  if (window.history.length > 1 && navigationHistory.length > 1) {
+    navigationHistory.pop();
+    window.history.back();
+  } else {
+    showDashboard(true);
+  }
+}
+
+function showDashboard(pushHistory = true) {
   state.currentTestId = null;
-  switchView('view-dashboard');
+  navigateTo('view-dashboard', pushHistory);
   renderDashboard();
 }
 
-function showAIGenerateView() {
-  switchView('view-ai-generate');
+function showAIGenerateView(pushHistory = true) {
+  navigateTo('view-ai-generate', pushHistory);
   updateAIPromptPreview();
   populateAppendTargetDropdown();
 }
@@ -486,12 +537,12 @@ function renderTestCards() {
    Pre-Exam Configuration
    ========================================================================== */
 
-function showPreExam(testId) {
+function showPreExam(testId, pushHistory = true) {
   const test = state.tests.find(t => t.id === testId);
   if (!test) return;
   state.currentTestId = testId;
 
-  switchView('view-pre-exam');
+  navigateTo('view-pre-exam', pushHistory, { testId });
 
   $('#pre-exam-title').textContent = test.title;
   $('#pre-exam-desc').textContent = test.description || 'Configure your assessment settings before starting.';
@@ -651,7 +702,7 @@ function startExam() {
     onAutoSubmit: handleAutoSubmit,
   });
 
-  switchView('view-exam');
+  navigateTo('view-exam', true, { testId: test.id });
 
   // Set header title
   $('#exam-header-title').textContent = test.title;
@@ -1051,9 +1102,9 @@ function submitExam() {
    Evaluation View
    ========================================================================== */
 
-function showEvaluation(result) {
+function showEvaluation(result, pushHistory = true) {
   state.engine = null;
-  switchView('view-evaluation');
+  navigateTo('view-evaluation', pushHistory, { result });
 
   const test = state.tests.find(t => t.id === result.testId);
 
@@ -1385,10 +1436,76 @@ function init() {
   loadState();
   renderDashboard();
 
-  // ── Navigation ──
-  $('#brand-home-btn').addEventListener('click', showDashboard);
-  $('#btn-eval-back-dash').addEventListener('click', showDashboard);
-  $('#btn-pre-exam-cancel').addEventListener('click', showDashboard);
+  // ── Browser History Initialization & Popstate (No Page Reload) ──
+  try {
+    window.history.replaceState({ viewId: 'view-dashboard' }, '', '');
+  } catch (e) {}
+
+  window.addEventListener('popstate', (e) => {
+    isHandlingPopState = true;
+    try {
+      const historyState = e.state;
+      if (state.engine) {
+        const confirmExit = confirm('Are you sure you want to exit the assessment? Your progress will not be submitted.');
+        if (!confirmExit) {
+          try {
+            window.history.pushState({ viewId: 'view-exam' }, '', '');
+          } catch (err) {}
+          return;
+        }
+        if (state.engine.overallInterval) clearInterval(state.engine.overallInterval);
+        if (state.engine.questionTimerInterval) clearInterval(state.engine.questionTimerInterval);
+        state.engine = null;
+      }
+
+      if (!historyState || !historyState.viewId || historyState.viewId === 'view-dashboard') {
+        showDashboard(false);
+      } else if (historyState.viewId === 'view-pre-exam') {
+        if (historyState.testId) {
+          showPreExam(historyState.testId, false);
+        } else {
+          showDashboard(false);
+        }
+      } else if (historyState.viewId === 'view-ai-generate') {
+        showAIGenerateView(false);
+      } else if (historyState.viewId === 'view-evaluation') {
+        if (historyState.result) {
+          showEvaluation(historyState.result, false);
+        } else if (state.results.length > 0) {
+          showEvaluation(state.results[state.results.length - 1], false);
+        } else {
+          showDashboard(false);
+        }
+      } else {
+        switchView(historyState.viewId);
+      }
+    } finally {
+      isHandlingPopState = false;
+    }
+  });
+
+  // ── Navigation Buttons ──
+  const btnHeaderBack = $('#btn-header-back');
+  if (btnHeaderBack) btnHeaderBack.addEventListener('click', goBack);
+
+  const btnPreExamTopBack = $('#btn-pre-exam-top-back');
+  if (btnPreExamTopBack) btnPreExamTopBack.addEventListener('click', goBack);
+
+  const btnEvalTopBack = $('#btn-eval-top-back');
+  if (btnEvalTopBack) btnEvalTopBack.addEventListener('click', goBack);
+
+  const btnExamExit = $('#btn-exam-exit');
+  if (btnExamExit) btnExamExit.addEventListener('click', goBack);
+
+  $('#brand-home-btn').addEventListener('click', () => {
+    if (state.engine) {
+      goBack();
+    } else {
+      showDashboard(true);
+    }
+  });
+  $('#btn-eval-back-dash').addEventListener('click', goBack);
+  $('#btn-pre-exam-cancel').addEventListener('click', goBack);
   $('#btn-eval-reattempt').addEventListener('click', () => {
     if (state.currentTestId) showPreExam(state.currentTestId);
   });
@@ -1654,7 +1771,7 @@ function init() {
   if (btnOpenAI) btnOpenAI.addEventListener('click', showAIGenerateView);
 
   const btnGenBack = $('#btn-gen-back-dash');
-  if (btnGenBack) btnGenBack.addEventListener('click', showDashboard);
+  if (btnGenBack) btnGenBack.addEventListener('click', goBack);
 
   // ── Multi-Device Data Sync (Export / Import Backup) ──
   const btnExport = $('#btn-export-backup');
