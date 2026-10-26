@@ -79,6 +79,58 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
 /* ==========================================================================
+   Question Text Parser — Converts markdown tables to HTML tables
+   ========================================================================== */
+
+/**
+ * Converts a question text string into safe HTML.
+ * - Converts markdown pipe tables (|  A  |  B  |) to styled <table> elements.
+ * - Converts newlines to <br> for non-table lines.
+ */
+function parseQuestionText(text) {
+  if (!text) return '';
+
+  const lines = text.split('\n');
+  const output = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    // Detect a markdown pipe table row: starts and/or ends with |
+    if (/^\s*\|/.test(line)) {
+      // Collect all consecutive pipe-table rows
+      const tableLines = [];
+      while (i < lines.length && /^\s*\|/.test(lines[i])) {
+        tableLines.push(lines[i]);
+        i++;
+      }
+      // Filter out separator rows like |---|---|
+      const dataRows = tableLines.filter(l => !/^\s*\|[\s|:-]+\|\s*$/.test(l));
+      if (dataRows.length > 0) {
+        let tableHtml = '<div class="matrix-table-wrapper"><table class="matrix-table">';
+        dataRows.forEach((row, rowIdx) => {
+          const cells = row.split('|').map(c => c.trim()).filter((c, ci, arr) => ci > 0 && ci < arr.length);
+          const tag = rowIdx === 0 ? 'th' : 'td';
+          tableHtml += '<tr>' + cells.map(c => `<${tag}>${escapeHtml(c)}</${tag}>`).join('') + '</tr>';
+        });
+        tableHtml += '</table></div>';
+        output.push(tableHtml);
+      }
+    } else {
+      // Regular text line — escape and convert to paragraph/br
+      const escaped = escapeHtml(line);
+      output.push(escaped ? `<span>${escaped}</span><br>` : '<br>');
+      i++;
+    }
+  }
+
+  // Clean up trailing <br>
+  let result = output.join('');
+  result = result.replace(/(<br>)+$/, '');
+  return result;
+}
+
+/* ==========================================================================
    View Switching
    ========================================================================== */
 
@@ -661,8 +713,8 @@ function renderQuestion() {
   const penalty = state.examConfig?.negativeMarks || 0;
   $('#exam-q-marks-pill').textContent = `+${mPerQ} / -${penalty} Marks`;
 
-  // Question text
-  $('#exam-q-text').innerHTML = question.text || '';
+  // Question text — parse markdown tables and preserve newlines
+  $('#exam-q-text').innerHTML = parseQuestionText(question.text);
 
   // Code snippet
   const codeBlock = $('#exam-q-code');
@@ -705,9 +757,13 @@ function renderQuestion() {
   // Solution Peek Area & Card State
   const peekArea = $('#exam-solution-peek-area');
   const solutionCard = $('#exam-solution-card');
+  const earlyPeekArea = $('#exam-early-peek-area');
+
   if (peekArea) {
     if (engine.enableQuestionTimer && (response?.timerExpired || response?.solutionRevealed)) {
+      // Timer expired — show main peek area, hide early peek
       peekArea.style.display = 'block';
+      if (earlyPeekArea) earlyPeekArea.style.display = 'none';
       if (response?.solutionRevealed && solutionCard) {
         solutionCard.style.display = 'block';
         solutionCard.innerHTML = `
@@ -717,9 +773,15 @@ function renderQuestion() {
       } else if (solutionCard) {
         solutionCard.style.display = 'none';
       }
+    } else if (engine.enableQuestionTimer && !response?.timerExpired) {
+      // Timer still running — hide expired-peek area, show early peek button
+      peekArea.style.display = 'none';
+      if (solutionCard) solutionCard.style.display = 'none';
+      if (earlyPeekArea) earlyPeekArea.style.display = 'flex';
     } else {
       peekArea.style.display = 'none';
       if (solutionCard) solutionCard.style.display = 'none';
+      if (earlyPeekArea) earlyPeekArea.style.display = 'none';
     }
   }
 
@@ -876,6 +938,7 @@ function handleTimerTick(info) {
   const qTimerBadge = $('#exam-q-timer-badge');
   const qTimerVal = $('#exam-q-timer-val');
   const peekArea = $('#exam-solution-peek-area');
+  const earlyPeekArea = $('#exam-early-peek-area');
 
   if (info.questionTimer && qTimerBadge && qTimerVal) {
     qTimerBadge.style.display = 'inline-flex';
@@ -885,9 +948,14 @@ function handleTimerTick(info) {
     qTimerVal.textContent = mins > 0 ? `${mins}:${secs < 10 ? '0' : ''}${secs}` : `${secs}s`;
 
     if (info.questionTimer.expired || rem <= 0) {
+      // Timer expired — switch to main peek area, hide early peek
       qTimerBadge.classList.remove('timer-warning');
       qTimerBadge.classList.add('timer-expired');
       if (peekArea) peekArea.style.display = 'block';
+      if (earlyPeekArea) earlyPeekArea.style.display = 'none';
+    } else if (info.questionTimer.solutionRevealed) {
+      // Solution peeked early — also show main peek (already rendered via renderExamUI)
+      if (earlyPeekArea) earlyPeekArea.style.display = 'none';
     } else if (rem <= 15) {
       qTimerBadge.classList.add('timer-warning');
       qTimerBadge.classList.remove('timer-expired');
@@ -898,6 +966,7 @@ function handleTimerTick(info) {
     qTimerBadge.style.display = 'none';
   }
 }
+
 
 function handleSectionChange(newIndex) {
   renderSectionTabs();
@@ -1292,7 +1361,7 @@ function renderQuestionReview(result, test, filter = 'all') {
             </div>
             <span class="badge-tag ${statusLabel === 'CORRECT' || statusLabel === 'ATTEMPTED' ? 'badge-success' : statusLabel === 'INCORRECT' ? 'badge-danger' : 'badge-warning'}">${statusLabel}</span>
           </div>
-          <div style="font-size:15px; line-height:1.6; color:var(--text-primary); margin-bottom:8px;">${q.text}</div>
+          <div style="font-size:15px; line-height:1.6; color:var(--text-primary); margin-bottom:8px;">${parseQuestionText(q.text)}</div>
           ${q.codeSnippet ? `<div class="question-code-block">${escapeHtml(q.codeSnippet)}</div>` : ''}
           ${renderQuestionVisual(q)}
           ${optionsHtml}
@@ -1436,6 +1505,20 @@ function init() {
       }
     });
   }
+
+  // ── Early Peek Button (when timer is still running) ──
+  const btnEarlyPeek = $('#btn-early-peek-solution');
+  if (btnEarlyPeek) {
+    btnEarlyPeek.addEventListener('click', () => {
+      if (!state.engine) return;
+      const currentQ = state.engine.getCurrentQuestion();
+      if (!currentQ) return;
+      // Mark solution as revealed and re-render (this will switch to the main peek area)
+      state.engine.revealSolution(currentQ.id);
+      renderExamUI();
+    });
+  }
+
 
   // ── Exam Action Buttons ──
   $('#btn-save-next').addEventListener('click', () => {

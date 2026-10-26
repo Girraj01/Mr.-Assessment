@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -620,6 +620,14 @@
         <!-- Options Container (MCQ Sections 1 to 6 or Subjective Writing for Section 7) -->
         <div class="options-list" id="exam-options-container">
           <!-- Rendered dynamically -->
+        </div>
+
+        <!-- Early Peek Button (visible while individual question timer is still running) -->
+        <div id="exam-early-peek-area" class="exam-early-peek-area" style="display: none;">
+          <span class="early-peek-hint">&#9203; Timer still running &mdash; need a hint?</span>
+          <button class="btn btn-sm btn-early-peek" id="btn-early-peek-solution">
+            &#128270; Peek Answer Early
+          </button>
         </div>
 
         <!-- In-Exam Solution Peek Area (unlocked when question timer expires or on-demand) -->
