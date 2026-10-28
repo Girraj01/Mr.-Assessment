@@ -619,11 +619,31 @@
             <div class="exam-timer-clock" id="exam-timer-display">00:00:00</div>
           </div>
         </div>
+        <!-- Pause / Resume Timer Button -->
+        <button class="btn btn-outline btn-sm" id="btn-pause-exam-timer" title="Pause test timer indefinitely" style="padding: 6px 12px; gap: 6px; font-weight: 600; border-color: var(--accent-amber); color: var(--accent-amber);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+          <span id="btn-pause-exam-timer-text">Pause</span>
+        </button>
         <button class="btn btn-danger btn-sm" id="btn-submit-exam-trigger">
           Submit Test
         </button>
       </div>
     </header>
+
+    <!-- Exam Paused Fullscreen Overlay -->
+    <div id="exam-pause-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); z-index: 999; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
+      <div style="background: var(--bg-primary); border: 1px solid var(--border-medium); border-radius: 12px; padding: 32px 36px; max-width: 440px; width: 100%; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);">
+        <div style="font-size: 38px; margin-bottom: 12px;">⏸️</div>
+        <h3 style="font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">Assessment Paused</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.6;">
+          All assessment countdown timers are paused indefinitely. Take a break and click <strong>Resume Assessment</strong> whenever you are ready to continue.
+        </p>
+        <button class="btn btn-primary btn-lg" id="btn-resume-overlay-trigger" style="width: 100%; justify-content: center; font-weight: 700;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Resume Assessment
+        </button>
+      </div>
+    </div>
 
     <!-- Main Exam Center Area -->
     <div class="exam-content-area">
@@ -781,9 +801,12 @@
         <textarea id="textarea-json-input" class="code-textarea" placeholder="Paste your test JSON here..."></textarea>
         <div id="upload-validation-msg" style="margin-top: 8px; font-size: 12px; font-weight: 600;"></div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 10px;">
         <button class="btn btn-outline" data-close-modal="modal-upload">Cancel</button>
-        <button class="btn btn-primary" id="btn-confirm-upload-test">Create Test Banner</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" id="btn-upload-save-only">Save to Dashboard</button>
+          <button class="btn btn-primary" id="btn-confirm-upload-test">Save & Start Assessment</button>
+        </div>
       </div>
     </div>
   </div>
@@ -792,7 +815,7 @@
        MODAL 2: AI Document to JSON Converter Helper
        ======================================================================= -->
   <div class="modal-overlay" id="modal-prompt-helper">
-    <div class="modal-card">
+    <div class="modal-card" style="max-width: 680px;">
       <div class="modal-header">
         <h3>Convert 1-Page PDF / Word Document to Test JSON</h3>
         <button class="modal-close-btn" data-close-modal="modal-prompt-helper">&times;</button>
@@ -803,23 +826,39 @@
           <ol style="padding-left: 20px; font-size: 13px; color: var(--text-secondary);">
             <li>Copy the prompt template below.</li>
             <li>Paste it directly to AntiGravity, ChatGPT, Claude, or any AI tool along with the text/questions from your PDF or Word document.</li>
-            <li>The AI will format all questions, options, topics, and correct answers into the exact JSON format.</li>
-            <li>Copy the resulting JSON and paste it into the <strong>Upload Mock Test</strong> section!</li>
+            <li>Copy the resulting JSON from the AI and paste it into the box below (or in <strong>Upload Mock Test</strong>)!</li>
           </ol>
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">AI Conversion Prompt Template:</span>
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">1. AI Conversion Prompt Template:</span>
           <button class="btn btn-outline btn-sm" id="btn-copy-ai-prompt">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
             Copy Prompt Template
           </button>
         </div>
 
-        <textarea id="textarea-ai-prompt" class="code-textarea" readonly></textarea>
+        <textarea id="textarea-ai-prompt" class="code-textarea" readonly style="max-height: 120px;"></textarea>
+
+        <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-light);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-primary);">2. Paste AI Generated JSON here to import:</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label for="input-pdf-duration" style="font-size: 11px; font-weight: 600; color: var(--text-secondary);">Test Duration:</label>
+              <input type="number" id="input-pdf-duration" class="input-text" style="width: 75px; padding: 4px 8px; font-size: 12px;" value="60" min="5" max="300">
+              <span style="font-size: 11px; color: var(--text-muted);">mins</span>
+            </div>
+          </div>
+          <textarea id="textarea-pdf-json-input" class="code-textarea" placeholder="Paste the JSON test returned by AI here..."></textarea>
+          <div id="pdf-upload-validation-msg" style="margin-top: 8px; font-size: 12px; font-weight: 600;"></div>
+        </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-primary" data-close-modal="modal-prompt-helper">Done</button>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 10px;">
+        <button class="btn btn-outline" data-close-modal="modal-prompt-helper">Cancel</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" id="btn-pdf-save-only">Save to Dashboard</button>
+          <button class="btn btn-primary" id="btn-pdf-save-launch">Save & Start Assessment</button>
+        </div>
       </div>
     </div>
   </div>

@@ -210,8 +210,8 @@ function goBack() {
   if (state.engine) {
     const confirmExit = confirm('Are you sure you want to exit the current assessment? Your progress will not be submitted.');
     if (!confirmExit) return;
-    if (state.engine.overallInterval) clearInterval(state.engine.overallInterval);
-    if (state.engine.questionTimerInterval) clearInterval(state.engine.questionTimerInterval);
+    state.engine.stop();
+    updatePauseUI(false);
     state.engine = null;
   }
 
@@ -224,6 +224,12 @@ function goBack() {
 }
 
 function showDashboard(pushHistory = true) {
+  if (state.engine) {
+    state.engine.stop();
+    state.engine = null;
+    updatePauseUI(false);
+  }
+  ExamEngine.stopAllTimers();
   state.currentTestId = null;
   navigateTo('view-dashboard', pushHistory);
   renderDashboard();
@@ -323,9 +329,10 @@ function closeModal(id) {
    ========================================================================== */
 
 function formatSeconds(totalSec) {
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
+  const safeSec = Math.max(0, Math.floor(Number(totalSec) || 0));
+  const h = Math.floor(safeSec / 3600);
+  const m = Math.floor((safeSec % 3600) / 60);
+  const s = safeSec % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
@@ -558,6 +565,13 @@ function renderTestCards() {
    ========================================================================== */
 
 function showPreExam(testId, pushHistory = true) {
+  if (state.engine) {
+    state.engine.stop();
+    state.engine = null;
+    updatePauseUI(false);
+  }
+  ExamEngine.stopAllTimers();
+
   const test = state.tests.find(t => t.id === testId);
   if (!test) return;
   state.currentTestId = testId;
@@ -570,10 +584,11 @@ function showPreExam(testId, pushHistory = true) {
   $('#input-marks-correct').value = test.markingScheme?.correct ?? 1;
   $('#input-marks-penalty').value = Math.abs(test.markingScheme?.incorrect ?? 0);
 
-  // Timer mode: default to section-strict if test has sectionalCutoffs
+  // Timer mode: default to section-strict ONLY if test has multiple sections AND is a full mock
   const timerOverall = $('input[name="timerMode"][value="overall"]');
   const timerSection = $('input[name="timerMode"][value="section"]');
-  if (test.sectionalCutoffs) {
+  const hasMultipleSections = (test.sections || []).length > 1;
+  if (test.sectionalCutoffs && hasMultipleSections && isFullLengthTest(test)) {
     timerSection.checked = true;
     timerOverall.checked = false;
   } else {
@@ -682,6 +697,13 @@ function updateRadioCardVisuals() {
    ========================================================================== */
 
 function startExam() {
+  if (state.engine) {
+    state.engine.stop();
+    state.engine = null;
+    updatePauseUI(false);
+  }
+  ExamEngine.stopAllTimers();
+
   const test = state.tests.find(t => t.id === state.currentTestId);
   if (!test) return;
 
@@ -740,6 +762,7 @@ function startExam() {
   // Set header title
   $('#exam-header-title').textContent = test.title;
 
+  updatePauseUI(false);
   renderSectionTabs();
   renderExamUI();
   state.engine.start();
@@ -1109,6 +1132,53 @@ function handleTimerTick(info) {
   }
 }
 
+function toggleExamPause() {
+  const engine = state.engine;
+  if (!engine) return;
+
+  const isNowPaused = engine.togglePause();
+  updatePauseUI(isNowPaused);
+}
+
+function updatePauseUI(isPaused) {
+  const pauseBtn = $('#btn-pause-exam-timer');
+  const pauseOverlay = $('#exam-pause-overlay');
+  const timerBadge = $('#exam-timer-container');
+
+  if (isPaused) {
+    if (pauseBtn) {
+      pauseBtn.style.borderColor = 'var(--status-answered)';
+      pauseBtn.style.color = 'var(--status-answered)';
+      pauseBtn.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        <span id="btn-pause-exam-timer-text">Resume</span>
+      `;
+      pauseBtn.title = 'Resume test timer';
+    }
+    if (pauseOverlay) {
+      pauseOverlay.style.display = 'flex';
+    }
+    if (timerBadge) {
+      timerBadge.classList.add('timer-paused');
+    }
+  } else {
+    if (pauseBtn) {
+      pauseBtn.style.borderColor = 'var(--accent-amber)';
+      pauseBtn.style.color = 'var(--accent-amber)';
+      pauseBtn.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+        <span id="btn-pause-exam-timer-text">Pause</span>
+      `;
+      pauseBtn.title = 'Pause test timer indefinitely';
+    }
+    if (pauseOverlay) {
+      pauseOverlay.style.display = 'none';
+    }
+    if (timerBadge) {
+      timerBadge.classList.remove('timer-paused');
+    }
+  }
+}
 
 function handleSectionChange(newIndex) {
   renderSectionTabs();
@@ -1129,6 +1199,7 @@ function submitExam() {
   if (!engine) return;
 
   engine.stop();
+  updatePauseUI(false);
 
   const test = engine.test;
   const responses = engine.getUserResponses();
@@ -1544,9 +1615,10 @@ function init() {
           } catch (err) {}
           return;
         }
-        if (state.engine.overallInterval) clearInterval(state.engine.overallInterval);
-        if (state.engine.questionTimerInterval) clearInterval(state.engine.questionTimerInterval);
+        state.engine.stop();
         state.engine = null;
+        updatePauseUI(false);
+        ExamEngine.stopAllTimers();
       }
 
       if (!historyState || !historyState.viewId || historyState.viewId === 'view-dashboard') {
@@ -1609,7 +1681,11 @@ function init() {
     openModal('modal-upload');
   });
 
-  $('#btn-confirm-upload-test').addEventListener('click', handleUploadTest);
+  const btnUploadSaveOnly = $('#btn-upload-save-only');
+  if (btnUploadSaveOnly) {
+    btnUploadSaveOnly.addEventListener('click', () => handleUploadTest(false));
+  }
+  $('#btn-confirm-upload-test').addEventListener('click', () => handleUploadTest(true));
 
   $('#btn-copy-skeleton-sample').addEventListener('click', () => {
     const text = JSON.stringify(ASSESSMENT_SCHEMA_EXAMPLE, null, 2);
@@ -1634,8 +1710,21 @@ function init() {
   // ── AI Prompt Modal ──
   $('#btn-open-prompt-modal').addEventListener('click', () => {
     $('#textarea-ai-prompt').value = PROMPT_TEMPLATE;
+    const pdfJson = $('#textarea-pdf-json-input');
+    if (pdfJson) pdfJson.value = '';
+    const pdfMsg = $('#pdf-upload-validation-msg');
+    if (pdfMsg) { pdfMsg.textContent = ''; pdfMsg.style.color = ''; }
     openModal('modal-prompt-helper');
   });
+
+  const btnPdfSaveOnly = $('#btn-pdf-save-only');
+  if (btnPdfSaveOnly) {
+    btnPdfSaveOnly.addEventListener('click', () => handleUploadFromPdfPrompt(false));
+  }
+  const btnPdfSaveLaunch = $('#btn-pdf-save-launch');
+  if (btnPdfSaveLaunch) {
+    btnPdfSaveLaunch.addEventListener('click', () => handleUploadFromPdfPrompt(true));
+  }
 
   $('#btn-copy-ai-prompt').addEventListener('click', () => {
     navigator.clipboard.writeText(PROMPT_TEMPLATE).then(() => {
@@ -1798,7 +1887,22 @@ function init() {
     renderExamUI();
   });
 
-  // ── Submit Flow ──
+  // ── Submit & Pause Flow ──
+  const btnPauseExam = $('#btn-pause-exam-timer');
+  if (btnPauseExam) {
+    btnPauseExam.addEventListener('click', toggleExamPause);
+  }
+
+  const btnResumeOverlay = $('#btn-resume-overlay-trigger');
+  if (btnResumeOverlay) {
+    btnResumeOverlay.addEventListener('click', () => {
+      if (state.engine) {
+        state.engine.resume();
+        updatePauseUI(false);
+      }
+    });
+  }
+
   $('#btn-submit-exam-trigger').addEventListener('click', () => {
     if (!state.engine) return;
     const summary = state.engine.getPaletteSummary();
@@ -2042,7 +2146,7 @@ function populateAppendTargetDropdown() {
   }).join('');
 }
 
-function parseAndNormalizeAIJson(rawStr) {
+function parseAndNormalizeAIJson(rawStr, durationOverride = null) {
   let parsed;
   try {
     parsed = JSON.parse(rawStr);
@@ -2051,7 +2155,9 @@ function parseAndNormalizeAIJson(rawStr) {
   }
 
   const topic = $('#input-gen-topic')?.value?.trim() || 'Custom Topic';
-  const duration = parseInt($('#input-gen-duration')?.value) || 25;
+  const genDuration = parseInt($('#input-gen-duration')?.value);
+  const pdfDuration = parseInt($('#input-pdf-duration')?.value);
+  const duration = durationOverride || (!isNaN(genDuration) && genDuration > 0 ? genDuration : (!isNaN(pdfDuration) && pdfDuration > 0 ? pdfDuration : 60));
   const marks = parseFloat($('#input-gen-marks')?.value) || 1;
   const penalty = parseFloat($('#input-gen-negative')?.value) || 0;
   const cutoff = parseInt($('#input-gen-cutoff')?.value) || 50;
@@ -2060,9 +2166,21 @@ function parseAndNormalizeAIJson(rawStr) {
   if (parsed.sections && Array.isArray(parsed.sections) && parsed.sections.length > 0) {
     if (!parsed.id) parsed.id = `ai-test-${Date.now()}`;
     if (!parsed.companyOrType) parsed.companyOrType = "AI Generated Test";
+
+    // If durationOverride or explicit duration is provided, apply to defaultDurationMinutes
+    if (durationOverride || (parsed.sections.length === 1 && duration)) {
+      parsed.defaultDurationMinutes = duration;
+    } else if (!parsed.defaultDurationMinutes) {
+      parsed.defaultDurationMinutes = parsed.sections.reduce((sum, s) => sum + (s.durationMinutes || 0), 0) || duration;
+    }
+
     parsed.sections.forEach((sec, si) => {
       if (!sec.id) sec.id = `sec-ai-${Date.now()}-${si + 1}`;
       if (!sec.name) sec.name = `${topic} (Part ${si + 1})`;
+      // If single section, ensure section duration matches the configured duration
+      if (parsed.sections.length === 1 && duration) {
+        sec.durationMinutes = duration;
+      }
       (sec.questions || []).forEach((q, qi) => {
         if (!q.id) q.id = `${sec.id}-q${qi + 1}`;
         if (!q.topic) q.topic = topic;
@@ -2077,6 +2195,7 @@ function parseAndNormalizeAIJson(rawStr) {
   // Case 2: Single Section Object with .questions
   if (parsed.questions && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
     const secId = `sec-ai-${Date.now()}`;
+    const targetDuration = durationOverride || duration;
     parsed.questions.forEach((q, qi) => {
       if (!q.id) q.id = `${secId}-q${qi + 1}`;
       if (!q.topic) q.topic = topic;
@@ -2089,7 +2208,7 @@ function parseAndNormalizeAIJson(rawStr) {
       title: parsed.name || `AI Practice: ${topic}`,
       companyOrType: "AI Generated Test",
       description: `Targeted placement assessment on ${topic} (${parsed.questions.length} Questions)`,
-      defaultDurationMinutes: parsed.durationMinutes || duration,
+      defaultDurationMinutes: targetDuration,
       passingScorePercent: cutoff,
       sectionalCutoffs: true,
       defaultCutoffPercent: cutoff,
@@ -2098,7 +2217,7 @@ function parseAndNormalizeAIJson(rawStr) {
         {
           id: secId,
           name: parsed.name || topic,
-          durationMinutes: parsed.durationMinutes || duration,
+          durationMinutes: targetDuration,
           cutoffPercent: parsed.cutoffPercent || cutoff,
           marksPerQuestion: parsed.marksPerQuestion || marks,
           type: parsed.type || "mcq",
@@ -2111,6 +2230,7 @@ function parseAndNormalizeAIJson(rawStr) {
   // Case 3: Raw Array of questions
   if (Array.isArray(parsed) && parsed.length > 0) {
     const secId = `sec-ai-${Date.now()}`;
+    const targetDuration = durationOverride || duration;
     parsed.forEach((q, qi) => {
       if (!q.id) q.id = `${secId}-q${qi + 1}`;
       if (!q.topic) q.topic = topic;
@@ -2123,7 +2243,7 @@ function parseAndNormalizeAIJson(rawStr) {
       title: `AI Practice: ${topic}`,
       companyOrType: "AI Generated Test",
       description: `Custom placement practice assessment covering ${topic} (${parsed.length} Questions)`,
-      defaultDurationMinutes: duration,
+      defaultDurationMinutes: targetDuration,
       passingScorePercent: cutoff,
       sectionalCutoffs: true,
       defaultCutoffPercent: cutoff,
@@ -2132,7 +2252,7 @@ function parseAndNormalizeAIJson(rawStr) {
         {
           id: secId,
           name: topic,
-          durationMinutes: duration,
+          durationMinutes: targetDuration,
           cutoffPercent: cutoff,
           marksPerQuestion: marks,
           type: "mcq",
@@ -2157,14 +2277,24 @@ function handleSaveAITest(launchImmediately = false) {
     return;
   }
 
+  const customDuration = parseInt($('#input-gen-duration')?.value);
+  const durationOverride = (!isNaN(customDuration) && customDuration > 0) ? customDuration : null;
+
   let testObj;
   try {
-    testObj = parseAndNormalizeAIJson(raw);
+    testObj = parseAndNormalizeAIJson(raw, durationOverride);
   } catch (err) {
     msgBox.className = 'gen-validation-box error';
     msgBox.style.display = 'block';
     msgBox.textContent = `✗ ${err.message}`;
     return;
+  }
+
+  if (durationOverride) {
+    testObj.defaultDurationMinutes = durationOverride;
+    if (testObj.sections && testObj.sections.length === 1) {
+      testObj.sections[0].durationMinutes = durationOverride;
+    }
   }
 
   const customTitle = $('#input-gen-custom-title')?.value?.trim();
@@ -2223,7 +2353,7 @@ function handleSaveAITest(launchImmediately = false) {
    Upload Test Handler
    ========================================================================== */
 
-function handleUploadTest() {
+function handleUploadTest(launchImmediately = false) {
   const textarea = $('#textarea-json-input');
   const msgDiv = $('#upload-validation-msg');
   const raw = textarea.value.trim();
@@ -2288,16 +2418,80 @@ function handleUploadTest() {
     });
   });
 
+  if (parsed.sections.length === 1 && parsed.defaultDurationMinutes) {
+    parsed.sections[0].durationMinutes = parsed.defaultDurationMinutes;
+  }
+
   state.tests.push(parsed);
   saveState();
 
   msgDiv.style.color = 'var(--status-answered)';
-  msgDiv.textContent = `✓ Test "${parsed.title}" created with ${totalQ} questions across ${parsed.sections.length} sections.`;
+  msgDiv.textContent = `✓ Test "${parsed.title}" saved! ${launchImmediately ? 'Opening test...' : 'Added to Dashboard.'}`;
 
   setTimeout(() => {
     closeModal('modal-upload');
-    renderDashboard();
-  }, 1200);
+    if (launchImmediately) {
+      showPreExam(parsed.id);
+    } else {
+      renderDashboard();
+    }
+  }, 1000);
+}
+
+function handleUploadFromPdfPrompt(launchImmediately = false) {
+  const textarea = $('#textarea-pdf-json-input');
+  const msgDiv = $('#pdf-upload-validation-msg');
+  const raw = textarea ? textarea.value.trim() : '';
+
+  if (!raw) {
+    if (msgDiv) {
+      msgDiv.style.color = 'var(--status-unanswered)';
+      msgDiv.textContent = '✗ Please paste the AI generated JSON test into the box above.';
+    }
+    return;
+  }
+
+  const customPdfDuration = parseInt($('#input-pdf-duration')?.value);
+  const durationOverride = (!isNaN(customPdfDuration) && customPdfDuration > 0) ? customPdfDuration : null;
+
+  let testObj;
+  try {
+    testObj = parseAndNormalizeAIJson(raw, durationOverride);
+  } catch (err) {
+    if (msgDiv) {
+      msgDiv.style.color = 'var(--status-unanswered)';
+      msgDiv.textContent = `✗ ${err.message}`;
+    }
+    return;
+  }
+
+  if (durationOverride) {
+    testObj.defaultDurationMinutes = durationOverride;
+    if (testObj.sections && testObj.sections.length === 1) {
+      testObj.sections[0].durationMinutes = durationOverride;
+    }
+  }
+
+  if (state.tests.some(t => t.id === testObj.id)) {
+    testObj.id = `${testObj.id}-${Date.now()}`;
+  }
+
+  state.tests.push(testObj);
+  saveState();
+
+  if (msgDiv) {
+    msgDiv.style.color = 'var(--status-answered)';
+    msgDiv.textContent = `✓ Test "${testObj.title}" saved! ${launchImmediately ? 'Opening test...' : 'Added to Dashboard.'}`;
+  }
+
+  setTimeout(() => {
+    closeModal('modal-prompt-helper');
+    if (launchImmediately) {
+      showPreExam(testObj.id);
+    } else {
+      renderDashboard();
+    }
+  }, 1000);
 }
 
 /* ==========================================================================

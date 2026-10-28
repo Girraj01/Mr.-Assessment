@@ -5,7 +5,19 @@
  */
 
 export class ExamEngine {
+  static _activeTimerInterval = null;
+
+  static stopAllTimers() {
+    if (ExamEngine._activeTimerInterval) {
+      clearInterval(ExamEngine._activeTimerInterval);
+      ExamEngine._activeTimerInterval = null;
+    }
+  }
+
   constructor({ test, config, onTick, onSectionChange, onAutoSubmit }) {
+    // Clean up any lingering background timers across all instances
+    ExamEngine.stopAllTimers();
+
     this.test = JSON.parse(JSON.stringify(test)); // deep clone
     this.config = config || {
       timerMode: "overall",
@@ -33,14 +45,44 @@ export class ExamEngine {
     this.enableQuestionTimer = Boolean(this.config.enableQuestionTimer);
     this.questionTimerSeconds = Number(this.config.questionTimerSeconds) || 60;
 
-    // Setup timers
+    // Setup timers & apply customDurationMinutes accurately
+    const customMinutes = Number(this.config.customDurationMinutes);
+    const hasCustomDuration = customMinutes > 0 && !isNaN(customMinutes);
+
     if (this.config.timerMode === "section") {
-      this.currentSectionSecondsRemaining = (this.getActiveSection().durationMinutes || 15) * 60;
+      // If single section, the section's allocated duration MUST match the configured custom duration
+      if (this.test.sections.length === 1 && hasCustomDuration) {
+        this.test.sections[0].durationMinutes = customMinutes;
+        this.currentSectionSecondsRemaining = customMinutes * 60;
+      } else if (hasCustomDuration) {
+        // Multi-section test: calculate current sum of section durations
+        const currentTotal = this.test.sections.reduce((sum, s) => sum + (Number(s.durationMinutes) || 15), 0) || 60;
+        if (Math.abs(customMinutes - currentTotal) > 0.1) {
+          // Proportionally scale each section's duration to sum up to customMinutes
+          const scale = customMinutes / currentTotal;
+          let allocated = 0;
+          this.test.sections.forEach((sec, idx) => {
+            if (idx === this.test.sections.length - 1) {
+              sec.durationMinutes = Math.max(1, customMinutes - allocated);
+            } else {
+              const scaled = Math.max(1, Math.round((Number(sec.durationMinutes) || 15) * scale));
+              sec.durationMinutes = scaled;
+              allocated += scaled;
+            }
+          });
+        }
+        this.currentSectionSecondsRemaining = (Number(this.getActiveSection()?.durationMinutes) || 15) * 60;
+      } else {
+        this.currentSectionSecondsRemaining = (Number(this.getActiveSection()?.durationMinutes) || 15) * 60;
+      }
+
       if (typeof this.config.allowSectionSwitching !== "boolean") {
         this.config.allowSectionSwitching = false; // default for strict mode if not specified
       }
     } else {
-      this.totalSecondsRemaining = (Number(this.config.customDurationMinutes) || this.test.defaultDurationMinutes || 120) * 60;
+      // Overall exam countdown timer
+      const totalMins = hasCustomDuration ? customMinutes : (Number(this.test.defaultDurationMinutes) || 60);
+      this.totalSecondsRemaining = totalMins * 60;
     }
 
     // Init per-section time tracking
@@ -83,17 +125,58 @@ export class ExamEngine {
   }
 
   start() {
-    if (this.timerInterval) clearInterval(this.timerInterval);
+    this.isPaused = false;
+    ExamEngine.stopAllTimers();
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
     this.timerInterval = setInterval(() => {
       this.tick();
     }, 1000);
+    ExamEngine._activeTimerInterval = this.timerInterval;
     this.tick();
   }
 
   stop() {
+    this.isPaused = false;
     if (this.timerInterval) {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
+    }
+    ExamEngine.stopAllTimers();
+  }
+
+  pause() {
+    this.isPaused = true;
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+    ExamEngine.stopAllTimers();
+  }
+
+  resume() {
+    if (!this.isPaused) return;
+    this.isPaused = false;
+    ExamEngine.stopAllTimers();
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+    this.timerInterval = setInterval(() => {
+      this.tick();
+    }, 1000);
+    ExamEngine._activeTimerInterval = this.timerInterval;
+  }
+
+  togglePause() {
+    if (this.isPaused) {
+      this.resume();
+      return false;
+    } else {
+      this.pause();
+      return true;
     }
   }
 

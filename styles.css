@@ -696,12 +696,24 @@ body {
   background: #FEE2E2;
   border-color: #F87171;
   color: #DC2626;
-  animation: pulseTimer 1s infinite alternate;
+  box-shadow: 0 0 0 1px #F87171;
 }
 
 @keyframes pulseTimer {
-  0% { transform: scale(1); }
-  100% { transform: scale(1.02); }
+  0% { opacity: 1; }
+  100% { opacity: 0.85; }
+}
+
+.exam-timer-wrapper.timer-paused {
+  background: #FEF3C7;
+  border-color: #F59E0B;
+  color: #B45309;
+}
+.timer-paused .exam-timer-label {
+  color: #B45309;
+}
+.timer-paused .exam-timer-clock {
+  color: #B45309;
 }
 
 .exam-timer-label {
