@@ -63,6 +63,18 @@ function loadState() {
     }
   });
 
+  // Normalize questions across all loaded tests (ensures prompt/question -> text for subjective/writing)
+  state.tests.forEach(test => {
+    (test.sections || []).forEach(sec => {
+      (sec.questions || []).forEach(q => {
+        if (!q.text && q.prompt) q.text = q.prompt;
+        if (!q.text && q.question) q.text = q.question;
+        if (!q.text && q.statement) q.text = q.statement;
+        if (!q.type && (sec.type === 'subjective' || q.prompt || q.wordLimit)) q.type = 'subjective';
+      });
+    });
+  });
+
   saveState();
 }
 
@@ -79,8 +91,16 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
 /* ==========================================================================
-   Question Text Parser — Converts markdown tables to HTML tables
+   Question Text Parser & Helpers
    ========================================================================== */
+
+/**
+ * Returns the best question text, resolving text, prompt, question, statement, or title.
+ */
+function getQuestionText(q) {
+  if (!q) return '';
+  return q.text || q.prompt || q.question || q.statement || q.title || '';
+}
 
 /**
  * Converts a question text string into safe HTML.
@@ -562,9 +582,20 @@ function showPreExam(testId, pushHistory = true) {
   }
   updateRadioCardVisuals();
 
-  // Section switching — off by default in section-strict mode
+  // Populate starting section dropdown
+  const startingSecSelect = $('#select-starting-section');
+  if (startingSecSelect) {
+    startingSecSelect.innerHTML = (test.sections || []).map((sec, idx) => `
+      <option value="${idx}">Section ${idx + 1}: ${escapeHtml(sec.name)} (${(sec.questions || []).length} Qs)</option>
+    `).join('');
+    startingSecSelect.value = "0";
+  }
+
+  // Section switching — default to ON so candidate has freedom to switch
   const switchCheck = $('#input-allow-section-switching');
-  switchCheck.checked = !timerSection.checked;
+  if (switchCheck) {
+    switchCheck.checked = true;
+  }
 
   // Speed / Question Timer: default ON for single-topic & AI tests, OFF for full-length mocks
   const isTopic = !isFullLengthTest(test);
@@ -656,7 +687,8 @@ function startExam() {
 
   const timerMode = $('input[name="timerMode"]:checked')?.value || 'overall';
   const customDuration = parseInt($('#input-custom-duration').value) || getTotalDuration(test);
-  const allowSectionSwitching = $('#input-allow-section-switching').checked;
+  const startingSectionIndex = parseInt($('#select-starting-section')?.value) || 0;
+  const allowSectionSwitching = $('#input-allow-section-switching')?.checked ?? true;
   const marksPerCorrect = parseFloat($('#input-marks-correct').value) || 1;
   const negativeMarks = parseFloat($('#input-marks-penalty').value) || 0;
 
@@ -683,7 +715,8 @@ function startExam() {
   const config = {
     timerMode,
     customDurationMinutes: customDuration,
-    allowSectionSwitching: timerMode === 'section' ? false : allowSectionSwitching,
+    startingSectionIndex,
+    allowSectionSwitching,
     marksPerCorrect,
     negativeMarks,
     enableCutoffs,
@@ -723,18 +756,32 @@ function renderSectionTabs() {
   const tabsContainer = $('#exam-sections-tabs');
   tabsContainer.innerHTML = engine.test.sections.map((sec, i) => {
     const isActive = i === engine.activeSectionIndex;
-    const isDisabled = engine.config.timerMode === 'section' && i !== engine.activeSectionIndex;
+    const isStrictLocked = !engine.config.allowSectionSwitching && i !== engine.activeSectionIndex;
     const shortName = sec.name.length > 16 ? sec.name.substring(0, 14) + '…' : sec.name;
-    return `<button class="section-pill-tab ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}" data-sec-index="${i}" ${isDisabled ? 'disabled' : ''}>${shortName} (${sec.questions.length})</button>`;
+    return `<button class="section-pill-tab ${isActive ? 'active' : ''} ${isStrictLocked ? 'disabled' : ''}" data-sec-index="${i}">${escapeHtml(shortName)} (${sec.questions.length})</button>`;
   }).join('');
 
   tabsContainer.querySelectorAll('.section-pill-tab').forEach(pill => {
     pill.addEventListener('click', () => {
-      if (pill.disabled) return;
       const idx = parseInt(pill.dataset.secIndex);
-      if (engine.switchSection(idx)) {
-        renderSectionTabs();
-        renderExamUI();
+      if (idx === engine.activeSectionIndex) return;
+      if (engine.config.allowSectionSwitching) {
+        if (engine.switchSection(idx)) {
+          renderSectionTabs();
+          renderExamUI();
+        }
+      } else {
+        // Strict section mode: if clicking next section, offer to advance early
+        if (idx === engine.activeSectionIndex + 1) {
+          const nextSec = engine.test.sections[idx];
+          if (confirm(`Advance to next section "${nextSec.name}"? You will begin with ${nextSec.durationMinutes || 15} minutes for the new section.`)) {
+            engine.switchSection(idx, true);
+            renderSectionTabs();
+            renderExamUI();
+          }
+        } else {
+          alert('Section navigation is set to sequential order. Click the "Next Section" button to proceed when you complete this section.');
+        }
       }
     });
   });
@@ -743,6 +790,39 @@ function renderSectionTabs() {
 function renderExamUI() {
   renderQuestion();
   renderPalette();
+
+  const engine = state.engine;
+  if (!engine) return;
+  const sec = engine.getActiveSection();
+  if (!sec) return;
+
+  const isLastQ = engine.activeQuestionIndex === sec.questions.length - 1;
+  const hasNextSec = engine.activeSectionIndex < engine.test.sections.length - 1;
+
+  // Dynamic Save & Next button label
+  const btnSaveNext = $('#btn-save-next');
+  if (btnSaveNext) {
+    if (isLastQ && hasNextSec) {
+      btnSaveNext.innerHTML = 'Save & Next Section ⇥';
+    } else if (isLastQ && !hasNextSec) {
+      btnSaveNext.innerHTML = 'Save & Submit Exam 🏁';
+    } else {
+      btnSaveNext.innerHTML = 'Save & Next →';
+    }
+  }
+
+  // Next Section early-advance button
+  const btnNextSection = $('#btn-next-section');
+  if (btnNextSection) {
+    if (hasNextSec) {
+      const nextSec = engine.test.sections[engine.activeSectionIndex + 1];
+      const shortNext = nextSec.name.length > 14 ? nextSec.name.substring(0, 12) + '…' : nextSec.name;
+      btnNextSection.style.display = 'inline-flex';
+      btnNextSection.innerHTML = `Next Section (${escapeHtml(shortNext)}) ⇥`;
+    } else {
+      btnNextSection.style.display = 'none';
+    }
+  }
 }
 
 function renderQuestion() {
@@ -765,7 +845,7 @@ function renderQuestion() {
   $('#exam-q-marks-pill').textContent = `+${mPerQ} / -${penalty} Marks`;
 
   // Question text — parse markdown tables and preserve newlines
-  $('#exam-q-text').innerHTML = parseQuestionText(question.text);
+  $('#exam-q-text').innerHTML = parseQuestionText(getQuestionText(question));
 
   // Code snippet
   const codeBlock = $('#exam-q-code');
@@ -878,12 +958,23 @@ function renderSubjectiveUI(question, response, container) {
   const cc = existingText.length;
   const limit = question.wordLimit || 250;
 
+  const rubricsList = question.rubrics && Array.isArray(question.rubrics) ? question.rubrics : [];
+  const rubricsHtml = rubricsList.length > 0
+    ? `<div style="margin-bottom: 14px; padding: 12px 16px; background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 6px;">
+        <div style="font-size: 12px; font-weight: 700; color: var(--color-primary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">📋 Evaluation Rubrics / Guidelines:</div>
+        <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+          ${rubricsList.map(r => `<li>${escapeHtml(r)}</li>`).join('')}
+        </ul>
+      </div>`
+    : '';
+
   container.innerHTML = `
     <div class="subjective-writing-area">
+      ${rubricsHtml}
       <div style="margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--text-secondary);">
-        Write your response below:
+        Write your response below (Recommended: up to ${limit} words):
       </div>
-      <textarea id="subjective-textarea" class="subjective-textarea" placeholder="Start writing your response here..." rows="12">${escapeHtml(existingText)}</textarea>
+      <textarea id="subjective-textarea" class="subjective-textarea" placeholder="Start writing your essay / email response here..." rows="12">${escapeHtml(existingText)}</textarea>
       <div class="subjective-counters">
         <span id="subjective-word-count">Words: ${wc} / ${limit}</span>
         <span id="subjective-char-count">Characters: ${cc}</span>
@@ -1412,7 +1503,7 @@ function renderQuestionReview(result, test, filter = 'all') {
             </div>
             <span class="badge-tag ${statusLabel === 'CORRECT' || statusLabel === 'ATTEMPTED' ? 'badge-success' : statusLabel === 'INCORRECT' ? 'badge-danger' : 'badge-warning'}">${statusLabel}</span>
           </div>
-          <div style="font-size:15px; line-height:1.6; color:var(--text-primary); margin-bottom:8px;">${parseQuestionText(q.text)}</div>
+          <div style="font-size:15px; line-height:1.6; color:var(--text-primary); margin-bottom:8px;">${parseQuestionText(getQuestionText(q))}</div>
           ${q.codeSnippet ? `<div class="question-code-block">${escapeHtml(q.codeSnippet)}</div>` : ''}
           ${renderQuestionVisual(q)}
           ${optionsHtml}
@@ -1640,10 +1731,52 @@ function init() {
   // ── Exam Action Buttons ──
   $('#btn-save-next').addEventListener('click', () => {
     if (!state.engine) return;
-    state.engine.saveAndNext();
+    const engine = state.engine;
+    const sec = engine.getActiveSection();
+    const isLastQ = engine.activeQuestionIndex === sec.questions.length - 1;
+    const hasNextSec = engine.activeSectionIndex < engine.test.sections.length - 1;
+
+    if (isLastQ && !hasNextSec) {
+      // Last question of final section -> open submit modal
+      const summary = engine.getPaletteSummary();
+      $('#confirm-answered-count').textContent = summary.answered + summary.markedAnswered;
+      $('#confirm-marked-count').textContent = summary.marked + summary.markedAnswered;
+      $('#confirm-unanswered-count').textContent = summary.notAnswered + summary.notVisited;
+      openModal('modal-submit-confirm');
+      return;
+    }
+
+    if (isLastQ && hasNextSec && engine.config.timerMode === 'section') {
+      const nextSec = engine.test.sections[engine.activeSectionIndex + 1];
+      if (!confirm(`You have reached the end of this section. Advance to next section "${nextSec.name}"?`)) {
+        return;
+      }
+    }
+
+    engine.saveAndNext();
     renderSectionTabs();
     renderExamUI();
   });
+
+  const btnNextSection = $('#btn-next-section');
+  if (btnNextSection) {
+    btnNextSection.addEventListener('click', () => {
+      if (!state.engine) return;
+      const engine = state.engine;
+      if (engine.activeSectionIndex < engine.test.sections.length - 1) {
+        const nextSec = engine.test.sections[engine.activeSectionIndex + 1];
+        const isStrict = engine.config.timerMode === 'section';
+        const msg = isStrict
+          ? `You have remaining time in this section. Complete this section and advance to "${nextSec.name}" now?`
+          : `Switch to next section "${nextSec.name}"?`;
+        if (confirm(msg)) {
+          engine.advanceToNextSection(true);
+          renderSectionTabs();
+          renderExamUI();
+        }
+      }
+    });
+  }
 
   $('#btn-mark-review').addEventListener('click', () => {
     if (!state.engine) return;
@@ -1933,6 +2066,9 @@ function parseAndNormalizeAIJson(rawStr) {
       (sec.questions || []).forEach((q, qi) => {
         if (!q.id) q.id = `${sec.id}-q${qi + 1}`;
         if (!q.topic) q.topic = topic;
+        if (!q.text && q.prompt) q.text = q.prompt;
+        if (!q.text && q.question) q.text = q.question;
+        if (!q.type && (sec.type === 'subjective' || q.prompt || q.wordLimit)) q.type = 'subjective';
       });
     });
     return parsed;
@@ -1944,6 +2080,9 @@ function parseAndNormalizeAIJson(rawStr) {
     parsed.questions.forEach((q, qi) => {
       if (!q.id) q.id = `${secId}-q${qi + 1}`;
       if (!q.topic) q.topic = topic;
+      if (!q.text && q.prompt) q.text = q.prompt;
+      if (!q.text && q.question) q.text = q.question;
+      if (!q.type && (parsed.type === 'subjective' || q.prompt || q.wordLimit)) q.type = 'subjective';
     });
     return {
       id: `ai-test-${Date.now()}`,
@@ -1975,6 +2114,9 @@ function parseAndNormalizeAIJson(rawStr) {
     parsed.forEach((q, qi) => {
       if (!q.id) q.id = `${secId}-q${qi + 1}`;
       if (!q.topic) q.topic = topic;
+      if (!q.text && q.prompt) q.text = q.prompt;
+      if (!q.text && q.question) q.text = q.question;
+      if (!q.type && (q.prompt || q.wordLimit)) q.type = 'subjective';
     });
     return {
       id: `ai-test-${Date.now()}`,
@@ -2133,12 +2275,16 @@ function handleUploadTest() {
     parsed.id = `${parsed.id}-${Date.now()}`;
   }
 
-  // Auto-assign section ids and question ids if missing
+  // Auto-assign section ids, question ids, and normalize subjective questions if missing
   parsed.sections.forEach((sec, si) => {
     if (!sec.id) sec.id = `sec-${si + 1}`;
     if (!sec.name) sec.name = `Section ${si + 1}`;
     (sec.questions || []).forEach((q, qi) => {
       if (!q.id) q.id = `${sec.id}-q${qi + 1}`;
+      if (!q.text && q.prompt) q.text = q.prompt;
+      if (!q.text && q.question) q.text = q.question;
+      if (!q.text && q.statement) q.text = q.statement;
+      if (!q.type && (sec.type === 'subjective' || q.prompt || q.wordLimit)) q.type = 'subjective';
     });
   });
 

@@ -20,7 +20,9 @@ export class ExamEngine {
     this.onSectionChange = onSectionChange || (() => {});
     this.onAutoSubmit = onAutoSubmit || (() => {});
 
-    this.activeSectionIndex = 0;
+    // Starting section index
+    const startIdx = Number(this.config.startingSectionIndex) || 0;
+    this.activeSectionIndex = (startIdx >= 0 && startIdx < this.test.sections.length) ? startIdx : 0;
     this.activeQuestionIndex = 0;
     this.responses = {};
     this.timerInterval = null;
@@ -34,7 +36,9 @@ export class ExamEngine {
     // Setup timers
     if (this.config.timerMode === "section") {
       this.currentSectionSecondsRemaining = (this.getActiveSection().durationMinutes || 15) * 60;
-      this.config.allowSectionSwitching = false; // strict mode disables free switching
+      if (typeof this.config.allowSectionSwitching !== "boolean") {
+        this.config.allowSectionSwitching = false; // default for strict mode if not specified
+      }
     } else {
       this.totalSecondsRemaining = (Number(this.config.customDurationMinutes) || this.test.defaultDurationMinutes || 120) * 60;
     }
@@ -44,9 +48,17 @@ export class ExamEngine {
       this.sectionTimeSpent[sec.id] = 0;
     });
 
-    // Initialize all responses
+    // Initialize all responses & normalize question texts
     this.test.sections.forEach(sec => {
       sec.questions.forEach(q => {
+        // Auto-normalize subjective questions and prompt -> text
+        const isSub = q.type === "subjective" || sec.type === "subjective";
+        if (isSub) {
+          q.type = "subjective";
+        }
+        if (!q.text && q.prompt) q.text = q.prompt;
+        if (!q.text && q.question) q.text = q.question;
+
         this.responses[q.id] = {
           selectedOption: null,
           visited: false,
@@ -57,7 +69,7 @@ export class ExamEngine {
           solutionRevealed: false
         };
         // For subjective questions, store text instead of option
-        if (q.type === "subjective") {
+        if (isSub) {
           this.responses[q.id].essayText = "";
         }
       });
@@ -208,14 +220,24 @@ export class ExamEngine {
     this.responses[q.id].visited = true;
   }
 
+  advanceToNextSection(force = true) {
+    if (this.activeSectionIndex < this.test.sections.length - 1) {
+      return this.switchSection(this.activeSectionIndex + 1, force);
+    }
+    return false;
+  }
+
   saveAndNext() {
     const sec = this.getActiveSection();
     if (this.activeQuestionIndex < sec.questions.length - 1) {
       this.navigateToQuestion(this.activeQuestionIndex + 1);
-    } else if (this.config.timerMode === "section") {
-      // In strict section mode, stay on last question — timer will advance
-    } else if (this.activeSectionIndex < this.test.sections.length - 1 && this.config.allowSectionSwitching) {
-      this.switchSection(this.activeSectionIndex + 1);
+      return { status: "nextQuestion" };
+    } else if (this.activeSectionIndex < this.test.sections.length - 1) {
+      // Completed the section early! Advance to next section
+      this.advanceToNextSection(true);
+      return { status: "nextSection" };
+    } else {
+      return { status: "examEnd" };
     }
   }
 
