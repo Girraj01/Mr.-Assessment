@@ -236,6 +236,7 @@ export function evaluateAssessment({ test, userResponses, timeSpentSeconds, conf
     topicList,
     weakTopics,
     strongTopics,
+    studyLaterCount: Object.values(userResponses || {}).filter(r => r && r.studyLater).length,
     userResponses
   };
 }

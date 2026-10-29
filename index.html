@@ -395,11 +395,12 @@
               Review your selected choices alongside the correct solutions and detailed explanations.
             </div>
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="btn btn-secondary btn-sm review-filter-btn active" data-filter="all">All</button>
             <button class="btn btn-secondary btn-sm review-filter-btn" data-filter="incorrect">Incorrect Only</button>
             <button class="btn btn-secondary btn-sm review-filter-btn" data-filter="unattempted">Skipped</button>
             <button class="btn btn-secondary btn-sm review-filter-btn" data-filter="correct">Correct</button>
+            <button class="btn btn-secondary btn-sm review-filter-btn btn-filter-study" data-filter="study-later" id="btn-filter-study-later">🔖 Study Later</button>
           </div>
         </div>
 
@@ -708,6 +709,10 @@
           <div class="footer-left-actions">
             <button class="btn btn-warning btn-sm" id="btn-mark-review">
               Mark for Review & Next
+            </button>
+            <button class="btn btn-study-later btn-sm" id="btn-toggle-study-later" title="Bookmark this question to study later">
+              <span class="study-icon">🔖</span>
+              <span id="btn-study-later-label">Study Later</span>
             </button>
             <button class="btn btn-outline btn-sm" id="btn-clear-response">
               Clear Response

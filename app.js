@@ -942,6 +942,22 @@ function renderQuestion() {
   // Palette subtitle
   $('#palette-sec-subtitle').textContent = `Section: ${section.name}`;
 
+  // Update Study Later button visual
+  const btnStudy = $('#btn-toggle-study-later');
+  if (btnStudy) {
+    const isStudy = engine.isStudyLater(question.id);
+    btnStudy.classList.toggle('active', isStudy);
+    btnStudy.title = isStudy ? 'Marked for study later (Click to unflag)' : 'Bookmark this question to study later';
+    const label = $('#btn-study-later-label');
+    if (label) {
+      label.textContent = isStudy ? 'Marked for Study' : 'Study Later';
+    }
+    const icon = btnStudy.querySelector('.study-icon');
+    if (icon) {
+      icon.textContent = isStudy ? '★' : '🔖';
+    }
+  }
+
   const optionsContainer = $('#exam-options-container');
 
   // Check if subjective
@@ -1047,6 +1063,7 @@ function renderPalette() {
   grid.innerHTML = section.questions.map((q, i) => {
     const status = engine.getQuestionStatus(q.id);
     const isActive = i === engine.activeQuestionIndex;
+    const isStudy = engine.isStudyLater(q.id);
 
     let btnClass = 'btn-not-visited';
     switch (status) {
@@ -1057,7 +1074,10 @@ function renderPalette() {
       default: btnClass = 'btn-not-visited';
     }
 
-    return `<button class="q-palette-btn ${btnClass} ${isActive ? 'active-q' : ''}" data-q-index="${i}">${i + 1}</button>`;
+    return `<button class="q-palette-btn ${btnClass} ${isActive ? 'active-q' : ''} ${isStudy ? 'has-study-later' : ''}" data-q-index="${i}">
+      ${i + 1}
+      ${isStudy ? '<span class="palette-study-dot">★</span>' : ''}
+    </button>`;
   }).join('');
 
   grid.querySelectorAll('.q-palette-btn').forEach(btn => {
@@ -1466,6 +1486,12 @@ function renderQuestionReview(result, test, filter = 'all') {
   if (!test) return;
 
   const responses = result.userResponses || {};
+  const studyLaterTotal = Object.values(responses).filter(r => r && r.studyLater).length;
+  const btnStudyFilter = $('#btn-filter-study-later');
+  if (btnStudyFilter) {
+    btnStudyFilter.textContent = `🔖 Study Later (${studyLaterTotal})`;
+  }
+
   let globalIdx = 0;
   let html = '';
 
@@ -1474,6 +1500,7 @@ function renderQuestionReview(result, test, filter = 'all') {
       globalIdx++;
       const resp = responses[q.id] || { selectedOption: null, visited: false };
       const isSubjective = q.type === 'subjective';
+      const isStudyLater = Boolean(resp.studyLater);
 
       let statusLabel, statusClass, itemClass;
 
@@ -1485,6 +1512,7 @@ function renderQuestionReview(result, test, filter = 'all') {
         itemClass = hasText ? 'is-correct' : 'is-unattempted';
 
         // Filter logic
+        if (filter === 'study-later' && !isStudyLater) return;
         if (filter === 'correct' && !hasText) return;
         if (filter === 'incorrect') return; // subjective can't be "incorrect"
         if (filter === 'unattempted' && hasText) return;
@@ -1507,9 +1535,14 @@ function renderQuestionReview(result, test, filter = 'all') {
         }
 
         // Filter
+        if (filter === 'study-later' && !isStudyLater) return;
         if (filter === 'correct' && statusLabel !== 'CORRECT') return;
         if (filter === 'incorrect' && statusLabel !== 'INCORRECT') return;
         if (filter === 'unattempted' && statusLabel !== 'SKIPPED') return;
+      }
+
+      if (isStudyLater) {
+        itemClass += ' is-study-later';
       }
 
       let optionsHtml = '';
@@ -1564,15 +1597,22 @@ function renderQuestionReview(result, test, filter = 'all') {
           </div>`;
       }
 
+      const studyBadgeHtml = isStudyLater
+        ? `<span class="badge-study-later"><span style="color:#fbbf24;">★</span> Marked for Study Later</span>`
+        : '';
+
       html += `
         <div class="question-review-item ${itemClass}" data-review-status="${statusLabel.toLowerCase()}">
           <div class="review-q-header">
             <div>
-              <span style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px;">${escapeHtml(section.name)}</span>
-              <span style="font-size:14px; font-weight:700; color:var(--text-primary); margin-left:8px;">Q${globalIdx}.</span>
-              <span class="badge-tag" style="background:var(--bg-tertiary); color:var(--text-secondary); margin-left:6px; font-size:10px;">${escapeHtml(q.topic || 'General')}</span>
+              <span class="review-section-title" style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px;">${escapeHtml(section.name)}</span>
+              <span class="review-q-num" style="font-size:14px; font-weight:700; color:var(--text-primary); margin-left:8px;">Q${globalIdx}.</span>
+              <span class="badge-tag review-topic-pill" style="background:var(--bg-tertiary); color:var(--text-secondary); margin-left:6px; font-size:10px;">${escapeHtml(q.topic || 'General')}</span>
             </div>
-            <span class="badge-tag ${statusLabel === 'CORRECT' || statusLabel === 'ATTEMPTED' ? 'badge-success' : statusLabel === 'INCORRECT' ? 'badge-danger' : 'badge-warning'}">${statusLabel}</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              ${studyBadgeHtml}
+              <span class="badge-tag ${statusLabel === 'CORRECT' || statusLabel === 'ATTEMPTED' ? 'badge-success' : statusLabel === 'INCORRECT' ? 'badge-danger' : 'badge-warning'}">${statusLabel}</span>
+            </div>
           </div>
           <div style="font-size:15px; line-height:1.6; color:var(--text-primary); margin-bottom:8px;">${parseQuestionText(getQuestionText(q))}</div>
           ${q.codeSnippet ? `<div class="question-code-block">${escapeHtml(q.codeSnippet)}</div>` : ''}
@@ -1583,7 +1623,22 @@ function renderQuestionReview(result, test, filter = 'all') {
     });
   });
 
-  container.innerHTML = html || '<div style="padding:30px; text-align:center; color:var(--text-muted);">No questions match this filter.</div>';
+  if (!html) {
+    if (filter === 'study-later') {
+      container.innerHTML = `
+        <div style="padding:40px 20px; text-align:center; color:var(--text-muted); background:var(--bg-primary); border:1px dashed var(--border-light); border-radius:8px;">
+          <div style="font-size:32px; margin-bottom:8px;">🔖</div>
+          <div style="font-size:16px; font-weight:700; color:var(--text-primary); margin-bottom:6px;">No Questions Marked for Study Later</div>
+          <div style="font-size:13px; max-width:460px; margin:0 auto; line-height:1.6;">
+            While taking a test, click the black <strong>"Study Later"</strong> button on any question to bookmark it. It will be showcased here with a dark theme for focused revision.
+          </div>
+        </div>`;
+    } else {
+      container.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text-muted);">No questions match this filter.</div>';
+    }
+  } else {
+    container.innerHTML = html;
+  }
 
   // Store the result and test for filter re-render
   container._result = result;
@@ -1873,6 +1928,16 @@ function init() {
     renderSectionTabs();
     renderExamUI();
   });
+
+  const btnToggleStudy = $('#btn-toggle-study-later');
+  if (btnToggleStudy) {
+    btnToggleStudy.addEventListener('click', () => {
+      if (!state.engine) return;
+      state.engine.toggleStudyLater();
+      renderQuestion();
+      renderPalette();
+    });
+  }
 
   $('#btn-clear-response').addEventListener('click', () => {
     if (!state.engine) return;

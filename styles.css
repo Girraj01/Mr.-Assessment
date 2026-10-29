@@ -1225,6 +1225,142 @@ body {
 }
 
 /* --------------------------------------------------------------------------
+   Study Later Feature & Dark Black Theme Evaluation
+   -------------------------------------------------------------------------- */
+.btn-study-later {
+  background: #111827;
+  color: #f9fafb;
+  border: 1px solid #1f2937;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-study-later:hover {
+  background: #000000;
+  border-color: #000000;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-study-later.active {
+  background: #030712;
+  color: #fbbf24;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+}
+
+.btn-study-later.active .study-icon {
+  color: #fbbf24;
+}
+
+/* Question Palette Study Later Indicator */
+.q-palette-btn.has-study-later {
+  position: relative;
+}
+
+.palette-study-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 13px;
+  height: 13px;
+  background: #000000;
+  color: #fbbf24;
+  font-size: 8px;
+  font-weight: 800;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #374151;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Dark Black Theme for Study Later Questions in Evaluation Panel */
+.question-review-item.is-study-later {
+  border: 2px solid #0f172a;
+  background: #ffffff;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.14);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.question-review-item.is-study-later .review-q-header {
+  background: #0f172a;
+  color: #f8fafc;
+  margin: -20px -20px 16px -20px;
+  padding: 12px 18px;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.question-review-item.is-study-later .review-q-header .review-section-title {
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.question-review-item.is-study-later .review-q-header .review-q-num {
+  color: #f8fafc;
+  font-size: 14px;
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+.question-review-item.is-study-later .review-q-header .review-topic-pill {
+  background: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+}
+
+.badge-study-later {
+  background: #000000;
+  color: #fbbf24;
+  border: 1px solid #374151;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+
+/* Evaluation Filter Button for Study Later */
+.review-filter-btn.btn-filter-study {
+  background: #0f172a;
+  color: #f8fafc;
+  border-color: #0f172a;
+}
+
+.review-filter-btn.btn-filter-study:hover {
+  background: #000000;
+  border-color: #000000;
+  color: #ffffff;
+}
+
+.review-filter-btn.btn-filter-study.active {
+  background: #000000;
+  color: #fbbf24;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4);
+}
+
+/* --------------------------------------------------------------------------
    MODAL WINDOWS (Upload & AI Prompt Helper)
    -------------------------------------------------------------------------- */
 .modal-overlay {

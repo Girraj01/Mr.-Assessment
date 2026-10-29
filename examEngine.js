@@ -105,6 +105,7 @@ export class ExamEngine {
           selectedOption: null,
           visited: false,
           markedForReview: false,
+          studyLater: false,
           timeSpentSeconds: 0,
           timerRemaining: this.questionTimerSeconds,
           timerExpired: false,
@@ -301,6 +302,18 @@ export class ExamEngine {
     if (!q) return;
     this.responses[q.id].markedForReview = !this.responses[q.id].markedForReview;
     this.responses[q.id].visited = true;
+  }
+
+  toggleStudyLater(questionId) {
+    const qId = questionId || (this.getCurrentQuestion()?.id);
+    if (!qId || !this.responses[qId]) return false;
+    this.responses[qId].studyLater = !this.responses[qId].studyLater;
+    return this.responses[qId].studyLater;
+  }
+
+  isStudyLater(questionId) {
+    const qId = questionId || (this.getCurrentQuestion()?.id);
+    return Boolean(qId && this.responses[qId]?.studyLater);
   }
 
   advanceToNextSection(force = true) {
