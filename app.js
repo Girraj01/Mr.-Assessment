@@ -116,8 +116,19 @@ function parseQuestionText(text) {
 
   while (i < lines.length) {
     const line = lines[i];
-    // Detect a markdown pipe table row: starts and/or ends with |
-    if (/^\s*\|/.test(line)) {
+    // Detect markdown code fence: starts with ```
+    if (/^\s*```/.test(line)) {
+      i++; // skip opening fence
+      const codeLines = [];
+      while (i < lines.length && !/^\s*```/.test(lines[i])) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length && /^\s*```/.test(lines[i])) {
+        i++; // skip closing fence
+      }
+      output.push(`<div class="question-code-block">${escapeHtml(codeLines.join('\n'))}</div>`);
+    } else if (/^\s*\|/.test(line)) {
       // Collect all consecutive pipe-table rows
       const tableLines = [];
       while (i < lines.length && /^\s*\|/.test(lines[i])) {
